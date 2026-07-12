@@ -1,0 +1,198 @@
+import React, { useMemo, useRef, useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { ChevronLeft, Send, Image as ImageIcon, Flame, Search } from "lucide-react";
+import MobileShell from "../components/MobileShell.jsx";
+
+const THREADS = [
+  {
+    id: "amara",
+    name: "Amara",
+    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&q=80",
+    online: true,
+    lastMessage: "haha okay you've convinced me, sushi it is 🍣",
+    time: "2m",
+    unread: 2,
+    messages: [
+      { from: "them", text: "Okay wait, so what's your actual favorite cuisine?", time: "10:02" },
+      { from: "me", text: "Honestly can't decide between Ethiopian and Japanese", time: "10:03" },
+      { from: "them", text: "Ooh bold combo. Sushi date to break the tie?", time: "10:04" },
+      { from: "them", text: "haha okay you've convinced me, sushi it is 🍣", time: "10:05" },
+    ],
+  },
+  {
+    id: "kwame",
+    name: "Kwame",
+    avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&q=80",
+    online: false,
+    lastMessage: "You: sounds good, see you at 7!",
+    time: "1h",
+    unread: 0,
+    messages: [
+      { from: "them", text: "Coffee this week?", time: "09:10" },
+      { from: "me", text: "sounds good, see you at 7!", time: "09:14" },
+    ],
+  },
+  {
+    id: "noor",
+    name: "Noor",
+    avatar: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&q=80",
+    online: true,
+    lastMessage: "sent a photo",
+    time: "3h",
+    unread: 0,
+    messages: [{ from: "them", text: "sent a photo", time: "07:40", isImage: true, imageSrc: "https://images.unsplash.com/photo-1520950237264-05a5f349b8d5?w=500&q=80" }],
+  },
+  {
+    id: "layla",
+    name: "Layla",
+    avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&q=80",
+    online: false,
+    lastMessage: "It's a match! Say hi 👋",
+    time: "1d",
+    unread: 1,
+    messages: [{ from: "system", text: "You matched with Layla", time: "yesterday" }],
+  },
+];
+
+function InboxList({ threads, onOpen }) {
+  const [query, setQuery] = useState("");
+  const filtered = threads.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()));
+
+  return (
+    <>
+      <header className="px-5 pt-5 pb-3 shrink-0">
+        <h1 className="font-fredoka text-3xl text-cream">Messages</h1>
+        <div className="mt-3 flex items-center gap-2 bg-grape rounded-full px-4 py-2.5 border border-white/10">
+          <Search className="w-4 h-4 text-cream/50" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search matches"
+            className="bg-transparent outline-none text-sm text-cream placeholder:text-cream/40 font-jakarta w-full"
+          />
+        </div>
+      </header>
+
+      <div className="flex-1 overflow-y-auto scroll-thin px-2 pb-2">
+        {filtered.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => onOpen(t.id)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-white/5 active:bg-white/10 transition-colors text-left"
+          >
+            <div className="relative shrink-0">
+              <img src={t.avatar} alt={t.name} className="w-14 h-14 rounded-2xl object-cover" />
+              {t.online && <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-mint border-2 border-ink" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-jakarta font-bold text-cream text-[15px] truncate">{t.name}</span>
+                <span className="font-jakarta text-[11px] text-cream/40 shrink-0">{t.time}</span>
+              </div>
+              <p className={`font-jakarta text-[13px] truncate mt-0.5 ${t.unread ? "text-cream/90 font-semibold" : "text-cream/50"}`}>
+                {t.lastMessage}
+              </p>
+            </div>
+            {t.unread > 0 && (
+              <span className="shrink-0 w-5 h-5 rounded-full bg-coral text-white text-[11px] font-bold flex items-center justify-center">
+                {t.unread}
+              </span>
+            )}
+          </button>
+        ))}
+        {filtered.length === 0 && (
+          <p className="text-center font-jakarta text-sm text-cream/40 mt-10">No matches found for "{query}"</p>
+        )}
+      </div>
+    </>
+  );
+}
+
+function ChatThread({ thread, onBack }) {
+  const [messages, setMessages] = useState(thread.messages);
+  const [draft, setDraft] = useState("");
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+  }, [messages]);
+
+  const send = () => {
+    if (!draft.trim()) return;
+    setMessages((m) => [...m, { from: "me", text: draft.trim(), time: "now" }]);
+    setDraft("");
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <header className="flex items-center gap-3 px-4 pt-5 pb-3 border-b border-white/10 shrink-0">
+        <button onClick={onBack} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/5">
+          <ChevronLeft className="w-5 h-5 text-cream" />
+        </button>
+        <img src={thread.avatar} alt={thread.name} className="w-9 h-9 rounded-full object-cover" />
+        <div>
+          <p className="font-jakarta font-bold text-cream text-sm leading-none">{thread.name}</p>
+          <p className="font-jakarta text-[11px] text-mint mt-0.5">{thread.online ? "Online now" : "Offline"}</p>
+        </div>
+      </header>
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto scroll-thin px-4 py-4 space-y-3">
+        {messages.map((m, i) =>
+          m.from === "system" ? (
+            <div key={i} className="flex justify-center">
+              <span className="font-jakarta text-[11px] font-semibold text-gold bg-gold/10 border border-gold/20 px-3 py-1 rounded-full flex items-center gap-1">
+                <Flame className="w-3 h-3" /> {m.text}
+              </span>
+            </div>
+          ) : (
+            <div key={i} className={`flex ${m.from === "me" ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`max-w-[75%] rounded-2xl px-4 py-2.5 font-jakarta text-sm ${
+                  m.from === "me" ? "bg-gradient-to-br from-coral to-gold text-white rounded-br-md" : "bg-grape text-cream rounded-bl-md"
+                }`}
+              >
+                {m.isImage ? <img src={m.imageSrc} alt="shared" className="rounded-xl w-full mb-1" /> : null}
+                {m.text}
+              </div>
+            </div>
+          )
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 px-4 py-3 border-t border-white/10 shrink-0">
+        <button className="w-9 h-9 rounded-full flex items-center justify-center text-cream/60 hover:bg-white/5 shrink-0">
+          <ImageIcon className="w-5 h-5" />
+        </button>
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && send()}
+          placeholder="Send a message..."
+          className="flex-1 bg-grape rounded-full px-4 py-2.5 text-sm text-cream placeholder:text-cream/40 outline-none font-jakarta border border-white/10"
+        />
+        <button
+          onClick={send}
+          className="w-10 h-10 rounded-full bg-gradient-to-br from-coral to-gold flex items-center justify-center text-white shrink-0 active:scale-90 transition-transform"
+        >
+          <Send className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function Messages() {
+  const { threadId } = useParams();
+  const navigate = useNavigate();
+  const activeThread = useMemo(() => THREADS.find((t) => t.id === threadId), [threadId]);
+
+  return (
+    <MobileShell showNav={!activeThread}>
+      {activeThread ? (
+        <ChatThread thread={activeThread} onBack={() => navigate("/messages")} />
+      ) : (
+        <InboxList threads={THREADS} onOpen={(id) => navigate(`/messages/${id}`)} />
+      )}
+    </MobileShell>
+  );
+}
