@@ -1,20 +1,34 @@
-import React, { useCallback, useRef, useState } from "react";
-import { Flame, SlidersHorizontal, X, Star, RotateCcw, Zap, Play, MapPin, Sparkles } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Flame,
+  SlidersHorizontal,
+  Heart,
+  MessageCircle,
+  Send,
+  Play,
+  MapPin,
+  X,
+} from "lucide-react";
 import MobileShell from "../components/MobileShell.jsx";
 
 const PROFILES = [
   {
-    id: 1,
+    id: "amara",
     name: "Amara",
     age: 26,
     distance: "3 km away",
     bio: "Chasing sunsets and street food. Will trade you a samosa recipe for a good playlist.",
     tags: ["Foodie", "Salsa", "Photography"],
-    media: { type: "photo", src: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=800&q=80" },
-    rotation: -3,
+    media: { type: "photo", src: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=900&q=80" },
+    likes: 214,
+    comments: [
+      { author: "Diego", text: "That playlist offer is very tempting 👀" },
+      { author: "Noor", text: "Samosas AND salsa? Sold." },
+    ],
   },
   {
-    id: 2,
+    id: "kwame",
     name: "Kwame",
     age: 29,
     distance: "6 km away",
@@ -23,233 +37,220 @@ const PROFILES = [
     media: {
       type: "video",
       src: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
-      poster: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=800&q=80",
+      poster: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=900&q=80",
     },
-    rotation: 2,
+    likes: 389,
+    comments: [{ author: "Layla", text: "the dog better be in the next video" }],
   },
   {
-    id: 3,
+    id: "noor",
     name: "Noor",
     age: 24,
     distance: "1 km away",
     bio: "Poet, plant mom, professional over-thinker. Let's overthink together.",
     tags: ["Poetry", "Plants", "Coffee"],
-    media: { type: "photo", src: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=800&q=80" },
-    rotation: -2,
+    media: { type: "photo", src: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=900&q=80" },
+    likes: 502,
+    comments: [],
   },
   {
-    id: 4,
+    id: "diego",
     name: "Diego",
     age: 31,
     distance: "9 km away",
     bio: "Weekend hiker, weekday spreadsheet wrangler. Looking for a co-pilot.",
     tags: ["Hiking", "Spreadsheets", "Tacos"],
-    media: { type: "photo", src: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&q=80" },
-    rotation: 3,
+    media: { type: "photo", src: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=900&q=80" },
+    likes: 167,
+    comments: [],
   },
   {
-    id: 5,
+    id: "layla",
     name: "Layla",
     age: 27,
     distance: "4 km away",
     bio: "I collect vinyl and bad puns in equal measure. Swipe if you can beat my pun game.",
     tags: ["Vinyl", "Puns", "Cats"],
-    media: { type: "photo", src: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=800&q=80" },
-    rotation: -1,
+    media: { type: "photo", src: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=900&q=80" },
+    likes: 298,
+    comments: [{ author: "Kwame", text: "give me your worst pun" }],
   },
 ];
 
-function Confetti({ burstKey }) {
-  if (!burstKey) return null;
-  const pieces = Array.from({ length: 14 });
+function VideoCard({ media }) {
+  const [playing, setPlaying] = useState(false);
   return (
-    <div key={burstKey} className="pointer-events-none absolute inset-0 z-40 overflow-visible">
-      {pieces.map((_, i) => {
-        const angle = (i / pieces.length) * 360;
-        const dist = 60 + (i % 4) * 18;
-        const colors = ["#FF5D73", "#FFC857", "#3DDC97", "#FFF8F0"];
-        const size = 6 + (i % 3) * 3;
-        return (
-          <span
-            key={i}
-            className="confetti-piece"
-            style={{
-              "--angle": `${angle}deg`,
-              "--dist": `${dist}px`,
-              background: colors[i % colors.length],
-              width: size,
-              height: size,
-              borderRadius: i % 2 === 0 ? "50%" : "2px",
-            }}
-          />
-        );
-      })}
+    <div className="absolute inset-0 w-full h-full bg-black">
+      {!playing && <img src={media.poster} alt="" className="absolute inset-0 w-full h-full object-cover opacity-90" draggable={false} />}
+      <video
+        src={media.src}
+        poster={media.poster}
+        className="absolute inset-0 w-full h-full object-cover"
+        loop
+        muted
+        playsInline
+        autoPlay={playing}
+        onClick={(e) => {
+          e.stopPropagation();
+          setPlaying((p) => !p);
+        }}
+      />
+      {!playing && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setPlaying(true);
+          }}
+          className="absolute inset-0 flex items-center justify-center"
+          aria-label="Play video"
+        >
+          <span className="w-16 h-16 rounded-full bg-white/25 backdrop-blur-md border-2 border-white flex items-center justify-center">
+            <Play className="w-7 h-7 text-white fill-white" />
+          </span>
+        </button>
+      )}
+      <div className="absolute top-4 left-4 flex items-center gap-1 bg-black/50 backdrop-blur px-2.5 py-1 rounded-full">
+        <span className="w-1.5 h-1.5 rounded-full bg-coral animate-pulse" />
+        <span className="text-[11px] font-semibold text-white tracking-wide font-jakarta">CLIP</span>
+      </div>
     </div>
   );
 }
 
-function ProfileCard({ profile, index, total, isTop, drag, onPointerDown }) {
-  const depth = index;
-  const scale = 1 - depth * 0.045;
-  const translateY = depth * 14;
-  const dragRotate = isTop ? drag.x / 14 : 0;
-  const [videoPlaying, setVideoPlaying] = useState(false);
-
-  const style = {
-    transform: `translate(${isTop ? drag.x : 0}px, ${isTop ? drag.y : translateY}px) rotate(${
-      isTop ? profile.rotation + dragRotate : profile.rotation
-    }deg) scale(${scale})`,
-    zIndex: total - index,
-    transition: drag.dragging ? "none" : "transform 0.45s cubic-bezier(.2,.9,.3,1.2)",
-  };
-
-  const likeOpacity = isTop ? Math.max(0, Math.min(1, drag.x / 90)) : 0;
-  const nopeOpacity = isTop ? Math.max(0, Math.min(1, -drag.x / 90)) : 0;
-
+function CommentsSheet({ profile, comments, onAdd, onClose }) {
+  const [draft, setDraft] = useState("");
   return (
-    <div className="absolute inset-0 select-none" style={style} onPointerDown={isTop ? onPointerDown : undefined}>
-      <div className="relative w-full h-full rounded-[28px] overflow-hidden shadow-[0_18px_40px_-8px_rgba(26,11,46,0.45)] border-[3px] border-white bg-grape">
-        {profile.media.type === "photo" ? (
-          <img src={profile.media.src} alt={profile.name} className="absolute inset-0 w-full h-full object-cover" draggable={false} />
-        ) : (
-          <div className="absolute inset-0 w-full h-full bg-black">
-            {!videoPlaying && (
-              <img src={profile.media.poster} alt={profile.name} className="absolute inset-0 w-full h-full object-cover opacity-90" draggable={false} />
-            )}
-            <video
-              src={profile.media.src}
-              poster={profile.media.poster}
-              className="absolute inset-0 w-full h-full object-cover"
-              loop
-              muted
-              playsInline
-              autoPlay={videoPlaying}
-              onClick={(e) => {
-                e.stopPropagation();
-                setVideoPlaying((p) => !p);
-              }}
-            />
-            {!videoPlaying && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setVideoPlaying(true);
-                }}
-                className="absolute inset-0 flex items-center justify-center"
-                aria-label="Play video"
-              >
-                <span className="w-16 h-16 rounded-full bg-white/25 backdrop-blur-md border-2 border-white flex items-center justify-center">
-                  <Play className="w-7 h-7 text-white fill-white" />
-                </span>
-              </button>
-            )}
-            <div className="absolute top-4 left-4 flex items-center gap-1 bg-black/50 backdrop-blur px-2.5 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-coral animate-pulse" />
-              <span className="text-[11px] font-semibold text-white tracking-wide font-jakarta">CLIP</span>
+    <div className="absolute inset-0 z-50 flex flex-col justify-end">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative bg-grape rounded-t-3xl border-t border-white/10 max-h-[70%] flex flex-col">
+        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-white/10 shrink-0">
+          <h3 className="font-fredoka text-lg text-cream">Comments</h3>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+            <X className="w-4 h-4 text-cream" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto scroll-thin px-5 py-3 space-y-3">
+          {comments.length === 0 && <p className="font-jakarta text-sm text-cream/40 text-center mt-6">Be the first to comment on {profile.name}'s post.</p>}
+          {comments.map((c, i) => (
+            <div key={i} className="flex gap-2">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-coral to-gold shrink-0" />
+              <div>
+                <p className="font-jakarta text-xs font-bold text-cream">{c.author}</p>
+                <p className="font-jakarta text-sm text-cream/80">{c.text}</p>
+              </div>
             </div>
-          </div>
-        )}
-
-        <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-ink via-ink/70 to-transparent" />
-
-        <div className="absolute top-8 left-6 border-4 border-mint rounded-xl px-4 py-1 -rotate-12" style={{ opacity: likeOpacity }}>
-          <span className="font-fredoka text-3xl text-mint tracking-wider">MATCH</span>
+          ))}
         </div>
-        <div className="absolute top-8 right-6 border-4 border-coral rounded-xl px-4 py-1 rotate-12" style={{ opacity: nopeOpacity }}>
-          <span className="font-fredoka text-3xl text-coral tracking-wider">NOPE</span>
-        </div>
-
-        <div className="absolute inset-x-0 bottom-0 p-5 pb-6">
-          <div className="flex items-baseline gap-2">
-            <h2 className="font-fredoka text-[28px] text-cream leading-none">{profile.name}</h2>
-            <span className="font-jakarta text-lg text-cream/90">{profile.age}</span>
-          </div>
-          <div className="flex items-center gap-1 mt-1.5 text-gold">
-            <MapPin className="w-3.5 h-3.5" />
-            <span className="font-jakarta text-xs font-medium">{profile.distance}</span>
-          </div>
-          <p className="font-jakarta text-sm text-cream/85 mt-2 leading-snug pr-4">{profile.bio}</p>
-          <div className="flex flex-wrap gap-1.5 mt-3">
-            {profile.tags.map((tag) => (
-              <span key={tag} className="font-jakarta text-[11px] font-semibold px-2.5 py-1 rounded-full bg-white/15 backdrop-blur text-cream border border-white/25">
-                {tag}
-              </span>
-            ))}
-          </div>
+        <div className="flex items-center gap-2 px-4 py-3 border-t border-white/10 shrink-0">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && draft.trim()) {
+                onAdd(draft.trim());
+                setDraft("");
+              }
+            }}
+            placeholder="Add a comment..."
+            className="flex-1 bg-white/10 rounded-full px-4 py-2.5 text-sm text-cream placeholder:text-cream/40 outline-none font-jakarta border border-white/10"
+          />
+          <button
+            onClick={() => {
+              if (!draft.trim()) return;
+              onAdd(draft.trim());
+              setDraft("");
+            }}
+            className="w-10 h-10 rounded-full bg-gradient-to-br from-coral to-gold flex items-center justify-center text-white shrink-0"
+          >
+            <Send className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
+function FeedCard({ profile, liked, likeCount, comments, onToggleLike, onOpenComments, onMessage }) {
+  return (
+    <section className="relative h-full w-full shrink-0 snap-start">
+      {profile.media.type === "photo" ? (
+        <img src={profile.media.src} alt={profile.name} className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+      ) : (
+        <VideoCard media={profile.media} />
+      )}
+
+      <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-ink via-ink/70 to-transparent" />
+
+      {/* right action rail */}
+      <div className="absolute right-3 bottom-28 flex flex-col items-center gap-5 z-10">
+        <button onClick={onToggleLike} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
+          <span className={`w-12 h-12 rounded-full flex items-center justify-center ${liked ? "bg-coral" : "bg-white/15 backdrop-blur"}`}>
+            <Heart className="w-5 h-5" fill={liked ? "white" : "none"} stroke="white" />
+          </span>
+          <span className="font-jakarta text-[11px] font-bold text-cream">{likeCount}</span>
+        </button>
+        <button onClick={onOpenComments} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
+          <span className="w-12 h-12 rounded-full bg-white/15 backdrop-blur flex items-center justify-center">
+            <MessageCircle className="w-5 h-5 text-white" />
+          </span>
+          <span className="font-jakarta text-[11px] font-bold text-cream">{comments.length}</span>
+        </button>
+        <button onClick={onMessage} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
+          <span className="w-12 h-12 rounded-full bg-gradient-to-br from-coral to-gold flex items-center justify-center">
+            <Send className="w-5 h-5 text-white" />
+          </span>
+          <span className="font-jakarta text-[11px] font-bold text-cream">Chat</span>
+        </button>
+      </div>
+
+      {/* info block */}
+      <div className="absolute inset-x-0 bottom-0 p-5 pb-6 pr-20">
+        <div className="flex items-baseline gap-2">
+          <h2 className="font-fredoka text-[26px] text-cream leading-none">{profile.name}</h2>
+          <span className="font-jakarta text-lg text-cream/90">{profile.age}</span>
+        </div>
+        <div className="flex items-center gap-1 mt-1.5 text-gold">
+          <MapPin className="w-3.5 h-3.5" />
+          <span className="font-jakarta text-xs font-medium">{profile.distance}</span>
+        </div>
+        <p className="font-jakarta text-sm text-cream/85 mt-2 leading-snug">{profile.bio}</p>
+        <div className="flex flex-wrap gap-1.5 mt-3">
+          {profile.tags.map((tag) => (
+            <span key={tag} className="font-jakarta text-[11px] font-semibold px-2.5 py-1 rounded-full bg-white/15 backdrop-blur text-cream border border-white/25">
+              {tag}
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Discover() {
-  const [deck, setDeck] = useState(PROFILES);
-  const [history, setHistory] = useState([]);
-  const [drag, setDrag] = useState({ x: 0, y: 0, dragging: false });
-  const [burstKey, setBurstKey] = useState(0);
-  const [toast, setToast] = useState(null);
-  const startPos = useRef({ x: 0, y: 0 });
-  const dragging = useRef(false);
-  const toastTimer = useRef(null);
+  const navigate = useNavigate();
+  const [likedMap, setLikedMap] = useState({});
+  const [likeCounts, setLikeCounts] = useState(() => Object.fromEntries(PROFILES.map((p) => [p.id, p.likes])));
+  const [commentsMap, setCommentsMap] = useState(() => Object.fromEntries(PROFILES.map((p) => [p.id, p.comments])));
+  const [openComments, setOpenComments] = useState(null);
 
-  const showToast = (msg) => {
-    setToast(msg);
-    window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast(null), 1400);
-  };
-
-  const commitSwipe = useCallback((direction) => {
-    setDeck((prev) => {
-      if (prev.length === 0) return prev;
-      const [current, ...rest] = prev;
-      setHistory((h) => [current, ...h].slice(0, 5));
-      if (direction === "like" || direction === "superlike") {
-        setBurstKey((k) => k + 1);
-        showToast(direction === "superlike" ? `Super Liked ${current.name}!` : `Liked ${current.name}!`);
-      } else {
-        showToast(`Passed on ${current.name}`);
-      }
-      return rest;
+  const toggleLike = (id) => {
+    setLikedMap((prev) => {
+      const isLiked = !prev[id];
+      setLikeCounts((counts) => ({ ...counts, [id]: counts[id] + (isLiked ? 1 : -1) }));
+      return { ...prev, [id]: isLiked };
     });
-    setDrag({ x: 0, y: 0, dragging: false });
-  }, []);
-
-  const onPointerDown = (e) => {
-    dragging.current = true;
-    startPos.current = { x: e.clientX, y: e.clientY };
-    setDrag((d) => ({ ...d, dragging: true }));
-    const move = (ev) => {
-      if (!dragging.current) return;
-      setDrag({ x: ev.clientX - startPos.current.x, y: ev.clientY - startPos.current.y, dragging: true });
-    };
-    const up = (ev) => {
-      dragging.current = false;
-      const dx = ev.clientX - startPos.current.x;
-      if (dx > 110) commitSwipe("like");
-      else if (dx < -110) commitSwipe("pass");
-      else setDrag({ x: 0, y: 0, dragging: false });
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
   };
 
-  const rewind = () => {
-    if (history.length === 0) return;
-    const [last, ...rest] = history;
-    setDeck((d) => [last, ...d]);
-    setHistory(rest);
-    showToast(`Rewound ${last.name}`);
+  const addComment = (id, text) => {
+    setCommentsMap((prev) => ({ ...prev, [id]: [...prev[id], { author: "You", text }] }));
   };
 
-  const visible = deck.slice(0, 3);
-  const current = deck[0];
+  const activeProfile = PROFILES.find((p) => p.id === openComments);
 
   return (
     <MobileShell
       header={
-        <header className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
+        <header className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0 z-20 relative">
           <div className="flex items-center gap-1.5">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-coral to-gold flex items-center justify-center rotate-[-6deg]">
               <Flame className="w-4 h-4 text-white" fill="white" strokeWidth={0} />
@@ -262,81 +263,29 @@ export default function Discover() {
         </header>
       }
     >
-      <div className="absolute inset-0 px-5 pb-3">
-        <div className="relative w-full h-full">
-          {visible.length > 0 ? (
-            visible
-              .slice()
-              .reverse()
-              .map((p, i) => {
-                const realIndex = visible.length - 1 - i;
-                return (
-                  <ProfileCard
-                    key={p.id}
-                    profile={p}
-                    index={realIndex}
-                    total={visible.length}
-                    isTop={realIndex === 0}
-                    drag={drag}
-                    onPointerDown={onPointerDown}
-                  />
-                );
-              })
-          ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-8">
-              <Sparkles className="w-10 h-10 text-gold mb-3" />
-              <h3 className="font-fredoka text-2xl text-cream">You're all caught up</h3>
-              <p className="font-jakarta text-sm text-cream/60 mt-1.5">
-                Check back soon for new faces nearby, or widen your distance filter.
-              </p>
-            </div>
-          )}
-          {current && <Confetti burstKey={burstKey} />}
-        </div>
-
-        {toast && (
-          <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-grape border border-white/10 text-cream font-jakarta text-xs font-semibold px-4 py-2 rounded-full shadow-lg z-50">
-            {toast}
-          </div>
-        )}
+      <div className="absolute inset-0 overflow-y-auto snap-y snap-mandatory scroll-thin">
+        {PROFILES.map((profile) => (
+          <FeedCard
+            key={profile.id}
+            profile={profile}
+            liked={!!likedMap[profile.id]}
+            likeCount={likeCounts[profile.id]}
+            comments={commentsMap[profile.id]}
+            onToggleLike={() => toggleLike(profile.id)}
+            onOpenComments={() => setOpenComments(profile.id)}
+            onMessage={() => navigate(`/messages/${profile.id}`)}
+          />
+        ))}
       </div>
 
-      <div className="absolute bottom-3 inset-x-0 flex items-center justify-center gap-3.5 px-5">
-        <button
-          onClick={rewind}
-          disabled={history.length === 0}
-          className="w-11 h-11 rounded-full bg-grape border border-white/10 flex items-center justify-center text-gold disabled:opacity-30 active:scale-90 transition-transform"
-        >
-          <RotateCcw className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => commitSwipe("pass")}
-          disabled={!current}
-          className="w-14 h-14 rounded-full bg-cream shadow-[0_8px_20px_-4px_rgba(255,93,115,0.35)] flex items-center justify-center text-coral disabled:opacity-30 active:scale-90 transition-transform"
-        >
-          <X className="w-6 h-6" strokeWidth={3} />
-        </button>
-        <button
-          onClick={() => commitSwipe("superlike")}
-          disabled={!current}
-          className="w-11 h-11 rounded-full bg-grape border border-white/10 flex items-center justify-center text-blue-400 disabled:opacity-30 active:scale-90 transition-transform"
-        >
-          <Star className="w-4 h-4" fill="currentColor" />
-        </button>
-        <button
-          onClick={() => commitSwipe("like")}
-          disabled={!current}
-          className="w-14 h-14 rounded-full bg-gradient-to-br from-coral to-gold shadow-[0_8px_20px_-4px_rgba(255,200,87,0.45)] flex items-center justify-center text-white disabled:opacity-30 active:scale-90 transition-transform"
-        >
-          <Flame className="w-6 h-6" fill="white" strokeWidth={0} />
-        </button>
-        <button
-          disabled={!current}
-          className="w-11 h-11 rounded-full bg-grape border border-white/10 flex items-center justify-center text-mint disabled:opacity-30 active:scale-90 transition-transform"
-        >
-          <Zap className="w-4 h-4" fill="currentColor" />
-        </button>
-      </div>
+      {activeProfile && (
+        <CommentsSheet
+          profile={activeProfile}
+          comments={commentsMap[activeProfile.id]}
+          onAdd={(text) => addComment(activeProfile.id, text)}
+          onClose={() => setOpenComments(null)}
+        />
+      )}
     </MobileShell>
   );
 }

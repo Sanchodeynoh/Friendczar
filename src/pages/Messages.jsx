@@ -1,14 +1,15 @@
-import React, { useMemo, useRef, useState, useEffect } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronLeft, Send, Image as ImageIcon, Flame, Search } from "lucide-react";
+import { ChevronLeft, Send, Image as ImageIcon, Flame, Search, MoreVertical, Pin, PinOff, Trash2 } from "lucide-react";
 import MobileShell from "../components/MobileShell.jsx";
 
-const THREADS = [
+const SEED_THREADS = [
   {
     id: "amara",
     name: "Amara",
     avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&q=80",
     online: true,
+    pinned: false,
     lastMessage: "haha okay you've convinced me, sushi it is 🍣",
     time: "2m",
     unread: 2,
@@ -24,6 +25,7 @@ const THREADS = [
     name: "Kwame",
     avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&q=80",
     online: false,
+    pinned: false,
     lastMessage: "You: sounds good, see you at 7!",
     time: "1h",
     unread: 0,
@@ -37,6 +39,7 @@ const THREADS = [
     name: "Noor",
     avatar: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&q=80",
     online: true,
+    pinned: false,
     lastMessage: "sent a photo",
     time: "3h",
     unread: 0,
@@ -47,6 +50,7 @@ const THREADS = [
     name: "Layla",
     avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&q=80",
     online: false,
+    pinned: false,
     lastMessage: "It's a match! Say hi 👋",
     time: "1d",
     unread: 1,
@@ -54,9 +58,42 @@ const THREADS = [
   },
 ];
 
-function InboxList({ threads, onOpen }) {
+function ThreadMenu({ thread, onPin, onDelete, onCloseMenu }) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onCloseMenu} />
+      <div className="absolute right-2 top-12 z-50 bg-ink border border-white/10 rounded-2xl shadow-xl overflow-hidden w-40">
+        <button
+          onClick={() => {
+            onPin();
+            onCloseMenu();
+          }}
+          className="w-full flex items-center gap-2 px-4 py-3 text-left font-jakarta text-sm text-cream hover:bg-white/5"
+        >
+          {thread.pinned ? <PinOff className="w-4 h-4 text-gold" /> : <Pin className="w-4 h-4 text-gold" />}
+          {thread.pinned ? "Unpin" : "Pin to top"}
+        </button>
+        <button
+          onClick={() => {
+            onDelete();
+            onCloseMenu();
+          }}
+          className="w-full flex items-center gap-2 px-4 py-3 text-left font-jakarta text-sm text-coral hover:bg-white/5 border-t border-white/5"
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete conversation
+        </button>
+      </div>
+    </>
+  );
+}
+
+function InboxList({ threads, onOpen, onPin, onDelete }) {
   const [query, setQuery] = useState("");
+  const [menuOpenId, setMenuOpenId] = useState(null);
+
   const filtered = threads.filter((t) => t.name.toLowerCase().includes(query.toLowerCase()));
+  const sorted = [...filtered].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
 
   return (
     <>
@@ -74,33 +111,47 @@ function InboxList({ threads, onOpen }) {
       </header>
 
       <div className="flex-1 overflow-y-auto scroll-thin px-2 pb-2">
-        {filtered.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => onOpen(t.id)}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-white/5 active:bg-white/10 transition-colors text-left"
-          >
-            <div className="relative shrink-0">
-              <img src={t.avatar} alt={t.name} className="w-14 h-14 rounded-2xl object-cover" />
-              {t.online && <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-mint border-2 border-ink" />}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-jakarta font-bold text-cream text-[15px] truncate">{t.name}</span>
-                <span className="font-jakarta text-[11px] text-cream/40 shrink-0">{t.time}</span>
+        {sorted.map((t) => (
+          <div key={t.id} className="relative">
+            <button
+              onClick={() => onOpen(t.id)}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-white/5 active:bg-white/10 transition-colors text-left"
+            >
+              <div className="relative shrink-0">
+                <img src={t.avatar} alt={t.name} className="w-14 h-14 rounded-2xl object-cover" />
+                {t.online && <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-mint border-2 border-ink" />}
               </div>
-              <p className={`font-jakarta text-[13px] truncate mt-0.5 ${t.unread ? "text-cream/90 font-semibold" : "text-cream/50"}`}>
-                {t.lastMessage}
-              </p>
-            </div>
-            {t.unread > 0 && (
-              <span className="shrink-0 w-5 h-5 rounded-full bg-coral text-white text-[11px] font-bold flex items-center justify-center">
-                {t.unread}
-              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  {t.pinned && <Pin className="w-3 h-3 text-gold shrink-0" fill="currentColor" />}
+                  <span className="font-jakarta font-bold text-cream text-[15px] truncate">{t.name}</span>
+                  <span className="font-jakarta text-[11px] text-cream/40 shrink-0 ml-auto">{t.time}</span>
+                </div>
+                <p className={`font-jakarta text-[13px] truncate mt-0.5 ${t.unread ? "text-cream/90 font-semibold" : "text-cream/50"}`}>
+                  {t.lastMessage}
+                </p>
+              </div>
+              {t.unread > 0 && (
+                <span className="shrink-0 w-5 h-5 rounded-full bg-coral text-white text-[11px] font-bold flex items-center justify-center">
+                  {t.unread}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpenId(menuOpenId === t.id ? null : t.id);
+              }}
+              className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-cream/40 hover:bg-white/10 hover:text-cream"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+            {menuOpenId === t.id && (
+              <ThreadMenu thread={t} onPin={() => onPin(t.id)} onDelete={() => onDelete(t.id)} onCloseMenu={() => setMenuOpenId(null)} />
             )}
-          </button>
+          </div>
         ))}
-        {filtered.length === 0 && (
+        {sorted.length === 0 && (
           <p className="text-center font-jakarta text-sm text-cream/40 mt-10">No matches found for "{query}"</p>
         )}
       </div>
@@ -184,14 +235,24 @@ function ChatThread({ thread, onBack }) {
 export default function Messages() {
   const { threadId } = useParams();
   const navigate = useNavigate();
-  const activeThread = useMemo(() => THREADS.find((t) => t.id === threadId), [threadId]);
+  const [threads, setThreads] = useState(SEED_THREADS);
+  const activeThread = useMemo(() => threads.find((t) => t.id === threadId), [threads, threadId]);
+
+  const togglePin = (id) => {
+    setThreads((prev) => prev.map((t) => (t.id === id ? { ...t, pinned: !t.pinned } : t)));
+  };
+
+  const deleteThread = (id) => {
+    setThreads((prev) => prev.filter((t) => t.id !== id));
+    if (activeThread?.id === id) navigate("/messages");
+  };
 
   return (
     <MobileShell showNav={!activeThread}>
       {activeThread ? (
         <ChatThread thread={activeThread} onBack={() => navigate("/messages")} />
       ) : (
-        <InboxList threads={THREADS} onOpen={(id) => navigate(`/messages/${id}`)} />
+        <InboxList threads={threads} onOpen={(id) => navigate(`/messages/${id}`)} onPin={togglePin} onDelete={deleteThread} />
       )}
     </MobileShell>
   );
