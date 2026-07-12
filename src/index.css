@@ -14,6 +14,8 @@ body {
   margin: 0;
   background: #1a0b2e;
   font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 * {
