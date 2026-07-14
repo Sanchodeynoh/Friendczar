@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Flame,
@@ -11,16 +11,16 @@ import {
   X,
 } from "lucide-react";
 import MobileShell from "../components/MobileShell.jsx";
-import { PROFILES } from "../data/profiles.js";
+import { api } from "../lib/api.js";
+
+const PLACEHOLDER_PHOTO = "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=900&q=80";
 
 function VideoCard({ media }) {
   const [playing, setPlaying] = useState(false);
   return (
     <div className="absolute inset-0 w-full h-full bg-black">
-      {!playing && <img src={media.poster} alt="" className="absolute inset-0 w-full h-full object-cover opacity-90" draggable={false} />}
       <video
-        src={media.src}
-        poster={media.poster}
+        src={media.url}
         className="absolute inset-0 w-full h-full object-cover"
         loop
         muted
@@ -53,8 +53,33 @@ function VideoCard({ media }) {
   );
 }
 
-function CommentsSheet({ profile, comments, onAdd, onClose }) {
+function CommentsSheet({ profile, onClose }) {
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    api
+      .getComments(profile.id)
+      .then(({ comments }) => setComments(comments))
+      .finally(() => setLoading(false));
+  }, [profile.id]);
+
+  const submit = async () => {
+    if (!draft.trim() || sending) return;
+    setSending(true);
+    try {
+      const { comment } = await api.addComment(profile.id, draft.trim());
+      setComments((c) => [...c, comment]);
+      setDraft("");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <div className="absolute inset-0 z-50 flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
@@ -66,12 +91,15 @@ function CommentsSheet({ profile, comments, onAdd, onClose }) {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto scroll-thin px-5 py-3 space-y-3">
-          {comments.length === 0 && <p className="font-jakarta text-sm text-cream/40 text-center mt-6">Be the first to comment on {profile.name}'s post.</p>}
-          {comments.map((c, i) => (
-            <div key={i} className="flex gap-2">
+          {loading && <p className="font-jakarta text-sm text-cream/40 text-center mt-6">Loading comments...</p>}
+          {!loading && comments.length === 0 && (
+            <p className="font-jakarta text-sm text-cream/40 text-center mt-6">Be the first to comment on {profile.name}'s post.</p>
+          )}
+          {comments.map((c) => (
+            <div key={c.id} className="flex gap-2">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-coral to-gold shrink-0" />
               <div>
-                <p className="font-jakarta text-xs font-bold text-cream">{c.author}</p>
+                <p className="font-jakarta text-xs font-bold text-cream">{c.author.name}</p>
                 <p className="font-jakarta text-sm text-cream/80">{c.text}</p>
               </div>
             </div>
@@ -81,22 +109,14 @@ function CommentsSheet({ profile, comments, onAdd, onClose }) {
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && draft.trim()) {
-                onAdd(draft.trim());
-                setDraft("");
-              }
-            }}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
             placeholder="Add a comment..."
             className="flex-1 bg-white/10 rounded-full px-4 py-2.5 text-sm text-cream placeholder:text-cream/40 outline-none font-jakarta border border-white/10"
           />
           <button
-            onClick={() => {
-              if (!draft.trim()) return;
-              onAdd(draft.trim());
-              setDraft("");
-            }}
-            className="w-10 h-10 rounded-full bg-gradient-to-br from-coral to-gold flex items-center justify-center text-white shrink-0"
+            onClick={submit}
+            disabled={sending}
+            className="w-10 h-10 rounded-full bg-gradient-to-br from-coral to-gold flex items-center justify-center text-white shrink-0 disabled:opacity-50"
           >
             <Send className="w-4 h-4" />
           </button>
@@ -119,21 +139,6 @@ function FilterSheet({ filters, onChange, onClose, onReset, resultCount }) {
         </div>
 
         <div className="px-5 py-4 space-y-6">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-jakarta text-sm font-bold text-cream">Maximum distance</span>
-              <span className="font-jakarta text-sm font-bold text-gold">{filters.maxDistance} km</span>
-            </div>
-            <input
-              type="range"
-              min={1}
-              max={20}
-              value={filters.maxDistance}
-              onChange={(e) => onChange({ ...filters, maxDistance: Number(e.target.value) })}
-              className="w-full accent-[#FF5D73]"
-            />
-          </div>
-
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="font-jakarta text-sm font-bold text-cream">Age range</span>
@@ -183,10 +188,7 @@ function FilterSheet({ filters, onChange, onClose, onReset, resultCount }) {
           <button onClick={onReset} className="font-jakarta text-sm font-bold text-cream/60 px-4 py-3">
             Reset
           </button>
-          <button
-            onClick={onClose}
-            className="flex-1 bg-gradient-to-br from-coral to-gold text-white font-jakarta font-bold text-sm py-3 rounded-2xl"
-          >
+          <button onClick={onClose} className="flex-1 bg-gradient-to-br from-coral to-gold text-white font-jakarta font-bold text-sm py-3 rounded-2xl">
             Show {resultCount} {resultCount === 1 ? "profile" : "profiles"}
           </button>
         </div>
@@ -195,32 +197,33 @@ function FilterSheet({ filters, onChange, onClose, onReset, resultCount }) {
   );
 }
 
-const DEFAULT_FILTERS = { maxDistance: 15, minAge: 18, maxAge: 45, showMe: "Everyone" };
+const DEFAULT_FILTERS = { minAge: 18, maxAge: 45, showMe: "Everyone" };
 
-function FeedCard({ profile, liked, likeCount, comments, onToggleLike, onOpenComments, onMessage, onOpenProfile }) {
-  const primaryMedia = profile.gallery[0];
+function FeedCard({ profile, onToggleLike, onOpenComments, onMessage, onOpenProfile }) {
+  const primaryMedia = profile.media?.[0];
+
   return (
     <section className="relative h-full w-full shrink-0 snap-start">
-      {primaryMedia.type === "photo" ? (
-        <img src={primaryMedia.src} alt={profile.name} className="absolute inset-0 w-full h-full object-cover" draggable={false} />
-      ) : (
-        <VideoCard media={primaryMedia} />
+      {!primaryMedia && <img src={PLACEHOLDER_PHOTO} alt={profile.name} className="absolute inset-0 w-full h-full object-cover" />}
+      {primaryMedia?.type === "photo" && (
+        <img src={primaryMedia.url} alt={profile.name} className="absolute inset-0 w-full h-full object-cover" draggable={false} />
       )}
+      {primaryMedia?.type === "video" && <VideoCard media={primaryMedia} />}
 
       <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-ink via-ink/70 to-transparent" />
 
       <div className="absolute right-3 bottom-28 flex flex-col items-center gap-5 z-10">
         <button onClick={onToggleLike} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
-          <span className={`w-12 h-12 rounded-full flex items-center justify-center ${liked ? "bg-coral" : "bg-white/15 backdrop-blur"}`}>
-            <Heart className="w-5 h-5" fill={liked ? "white" : "none"} stroke="white" />
+          <span className={`w-12 h-12 rounded-full flex items-center justify-center ${profile.likedByMe ? "bg-coral" : "bg-white/15 backdrop-blur"}`}>
+            <Heart className="w-5 h-5" fill={profile.likedByMe ? "white" : "none"} stroke="white" />
           </span>
-          <span className="font-jakarta text-[11px] font-bold text-cream">{likeCount}</span>
+          <span className="font-jakarta text-[11px] font-bold text-cream">{profile.likeCount}</span>
         </button>
         <button onClick={onOpenComments} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
           <span className="w-12 h-12 rounded-full bg-white/15 backdrop-blur flex items-center justify-center">
             <MessageCircle className="w-5 h-5 text-white" />
           </span>
-          <span className="font-jakarta text-[11px] font-bold text-cream">{comments.length}</span>
+          <span className="font-jakarta text-[11px] font-bold text-cream">{profile.commentCount}</span>
         </button>
         <button onClick={onMessage} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
           <span className="w-12 h-12 rounded-full bg-gradient-to-br from-coral to-gold flex items-center justify-center">
@@ -233,20 +236,24 @@ function FeedCard({ profile, liked, likeCount, comments, onToggleLike, onOpenCom
       <div className="absolute inset-x-0 bottom-0 p-5 pb-6 pr-20">
         <button onClick={onOpenProfile} className="flex items-baseline gap-2 active:opacity-70">
           <h2 className="font-fredoka text-[26px] text-cream leading-none underline decoration-gold/50 decoration-2 underline-offset-4">{profile.name}</h2>
-          <span className="font-jakarta text-lg text-cream/90">{profile.age}</span>
+          {profile.age && <span className="font-jakarta text-lg text-cream/90">{profile.age}</span>}
         </button>
-        <div className="flex items-center gap-1 mt-1.5 text-gold">
-          <MapPin className="w-3.5 h-3.5" />
-          <span className="font-jakarta text-xs font-medium">{profile.distanceKm} km away</span>
-        </div>
-        <p className="font-jakarta text-sm text-cream/85 mt-2 leading-snug">{profile.bio}</p>
-        <div className="flex flex-wrap gap-1.5 mt-3">
-          {profile.tags.map((tag) => (
-            <span key={tag} className="font-jakarta text-[11px] font-semibold px-2.5 py-1 rounded-full bg-white/15 backdrop-blur text-cream border border-white/25">
-              {tag}
-            </span>
-          ))}
-        </div>
+        {profile.location && (
+          <div className="flex items-center gap-1 mt-1.5 text-gold">
+            <MapPin className="w-3.5 h-3.5" />
+            <span className="font-jakarta text-xs font-medium">{profile.location}</span>
+          </div>
+        )}
+        {profile.bio && <p className="font-jakarta text-sm text-cream/85 mt-2 leading-snug">{profile.bio}</p>}
+        {profile.tags?.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {profile.tags.map((tag) => (
+              <span key={tag} className="font-jakarta text-[11px] font-semibold px-2.5 py-1 rounded-full bg-white/15 backdrop-blur text-cream border border-white/25">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -254,36 +261,40 @@ function FeedCard({ profile, liked, likeCount, comments, onToggleLike, onOpenCom
 
 export default function Discover() {
   const navigate = useNavigate();
-  const [likedMap, setLikedMap] = useState({});
-  const [likeCounts, setLikeCounts] = useState(() => Object.fromEntries(PROFILES.map((p) => [p.id, p.likes])));
-  const [commentsMap, setCommentsMap] = useState(() => Object.fromEntries(PROFILES.map((p) => [p.id, p.comments])));
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [openComments, setOpenComments] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
 
-  const toggleLike = (id) => {
-    setLikedMap((prev) => {
-      const isLiked = !prev[id];
-      setLikeCounts((counts) => ({ ...counts, [id]: counts[id] + (isLiked ? 1 : -1) }));
-      return { ...prev, [id]: isLiked };
-    });
+  const loadProfiles = () => {
+    setLoading(true);
+    setError("");
+    api
+      .discover({ minAge: filters.minAge, maxAge: filters.maxAge, gender: filters.showMe })
+      .then(({ profiles }) => setProfiles(profiles))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
   };
 
-  const addComment = (id, text) => {
-    setCommentsMap((prev) => ({ ...prev, [id]: [...prev[id], { author: "You", text }] }));
-  };
-
-  const filteredProfiles = useMemo(() => {
-    return PROFILES.filter((p) => {
-      if (p.distanceKm > filters.maxDistance) return false;
-      if (p.age < filters.minAge || p.age > filters.maxAge) return false;
-      if (filters.showMe === "Women" && p.gender !== "Woman") return false;
-      if (filters.showMe === "Men" && p.gender !== "Man") return false;
-      return true;
-    });
+  useEffect(() => {
+    loadProfiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
-  const activeProfile = PROFILES.find((p) => p.id === openComments);
+  const toggleLike = async (id) => {
+    setProfiles((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, likedByMe: !p.likedByMe, likeCount: p.likeCount + (p.likedByMe ? -1 : 1) } : p))
+    );
+    try {
+      await api.toggleLike(id);
+    } catch (err) {
+      loadProfiles(); // resync on failure
+    }
+  };
+
+  const activeProfile = profiles.find((p) => p.id === openComments);
   const filtersActive = JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS);
 
   return (
@@ -307,37 +318,41 @@ export default function Discover() {
       }
     >
       <div className="absolute inset-0 overflow-y-auto snap-y snap-mandatory scroll-thin">
-        {filteredProfiles.length === 0 ? (
+        {loading && (
+          <div className="h-full w-full flex items-center justify-center">
+            <span className="font-jakarta text-sm text-cream/50">Loading profiles...</span>
+          </div>
+        )}
+        {!loading && error && (
+          <div className="h-full w-full flex flex-col items-center justify-center text-center px-8">
+            <p className="font-jakarta text-sm text-coral">{error}</p>
+            <button onClick={loadProfiles} className="mt-3 font-jakarta text-sm font-bold text-gold">
+              Try again
+            </button>
+          </div>
+        )}
+        {!loading && !error && profiles.length === 0 && (
           <div className="h-full w-full flex flex-col items-center justify-center text-center px-8">
             <SlidersHorizontal className="w-8 h-8 text-gold mb-3" />
             <h3 className="font-fredoka text-xl text-cream">No one matches those filters</h3>
-            <p className="font-jakarta text-sm text-cream/50 mt-1.5">Try widening your distance or age range.</p>
+            <p className="font-jakarta text-sm text-cream/50 mt-1.5">Try widening your age range or "Show me" setting.</p>
           </div>
-        ) : (
-          filteredProfiles.map((profile) => (
+        )}
+        {!loading &&
+          !error &&
+          profiles.map((profile) => (
             <FeedCard
               key={profile.id}
               profile={profile}
-              liked={!!likedMap[profile.id]}
-              likeCount={likeCounts[profile.id]}
-              comments={commentsMap[profile.id]}
               onToggleLike={() => toggleLike(profile.id)}
               onOpenComments={() => setOpenComments(profile.id)}
               onMessage={() => navigate(`/messages/${profile.id}`)}
               onOpenProfile={() => navigate(`/user/${profile.id}`)}
             />
-          ))
-        )}
+          ))}
       </div>
 
-      {activeProfile && (
-        <CommentsSheet
-          profile={activeProfile}
-          comments={commentsMap[activeProfile.id]}
-          onAdd={(text) => addComment(activeProfile.id, text)}
-          onClose={() => setOpenComments(null)}
-        />
-      )}
+      {activeProfile && <CommentsSheet profile={activeProfile} onClose={() => setOpenComments(null)} />}
 
       {showFilters && (
         <FilterSheet
@@ -345,7 +360,7 @@ export default function Discover() {
           onChange={setFilters}
           onClose={() => setShowFilters(false)}
           onReset={() => setFilters(DEFAULT_FILTERS)}
-          resultCount={filteredProfiles.length}
+          resultCount={profiles.length}
         />
       )}
     </MobileShell>

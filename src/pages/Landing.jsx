@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Flame, Mail, Lock, User, Calendar, ArrowRight } from "lucide-react";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const STOCK_FACES = [
   "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&q=80",
@@ -11,12 +12,30 @@ const STOCK_FACES = [
 
 export default function Landing() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState("signup"); // signup | login
+  const { signup, login } = useAuth();
+  const [mode, setMode] = useState("signup");
+  const [form, setForm] = useState({ name: "", email: "", password: "", age: "" });
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const submit = (e) => {
+  const update = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const submit = async (e) => {
     e.preventDefault();
-    // No backend yet — jump straight into the app.
-    navigate("/discover");
+    setError("");
+    setSubmitting(true);
+    try {
+      if (mode === "signup") {
+        await signup({ name: form.name, email: form.email, password: form.password, age: form.age });
+      } else {
+        await login({ email: form.email, password: form.password });
+      }
+      navigate("/discover");
+    } catch (err) {
+      setError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -37,7 +56,6 @@ export default function Landing() {
           Photos, 90-second clips, real conversations. Swipe through nearby people, match, and message — no games, no algorithms pretending to know you better than you do.
         </p>
 
-        {/* floating faces strip */}
         <div className="flex -space-x-3 mt-6">
           {STOCK_FACES.map((src, i) => (
             <img
@@ -53,12 +71,15 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Mode toggle */}
         <div className="mt-9 flex bg-grape rounded-full p-1 border border-white/10">
           {["signup", "login"].map((m) => (
             <button
               key={m}
-              onClick={() => setMode(m)}
+              type="button"
+              onClick={() => {
+                setMode(m);
+                setError("");
+              }}
               className={`flex-1 py-2.5 rounded-full font-jakarta text-sm font-bold transition-colors ${
                 mode === m ? "bg-gradient-to-br from-coral to-gold text-white" : "text-cream/50"
               }`}
@@ -68,35 +89,37 @@ export default function Landing() {
           ))}
         </div>
 
-        {/* Form */}
         <form onSubmit={submit} className="mt-6 space-y-3">
           {mode === "signup" && (
             <div className="flex items-center gap-2 bg-grape rounded-2xl px-4 py-3 border border-white/10">
               <User className="w-4 h-4 text-cream/40 shrink-0" />
-              <input required placeholder="First name" className="bg-transparent outline-none text-sm text-cream placeholder:text-cream/40 font-jakarta w-full" />
+              <input required value={form.name} onChange={update("name")} placeholder="First name" className="bg-transparent outline-none text-sm text-cream placeholder:text-cream/40 font-jakarta w-full" />
             </div>
           )}
           <div className="flex items-center gap-2 bg-grape rounded-2xl px-4 py-3 border border-white/10">
             <Mail className="w-4 h-4 text-cream/40 shrink-0" />
-            <input required type="email" placeholder="Email address" className="bg-transparent outline-none text-sm text-cream placeholder:text-cream/40 font-jakarta w-full" />
+            <input required type="email" value={form.email} onChange={update("email")} placeholder="Email address" className="bg-transparent outline-none text-sm text-cream placeholder:text-cream/40 font-jakarta w-full" />
           </div>
           <div className="flex items-center gap-2 bg-grape rounded-2xl px-4 py-3 border border-white/10">
             <Lock className="w-4 h-4 text-cream/40 shrink-0" />
-            <input required type="password" placeholder="Password" className="bg-transparent outline-none text-sm text-cream placeholder:text-cream/40 font-jakarta w-full" />
+            <input required type="password" minLength={8} value={form.password} onChange={update("password")} placeholder="Password (min. 8 characters)" className="bg-transparent outline-none text-sm text-cream placeholder:text-cream/40 font-jakarta w-full" />
           </div>
           {mode === "signup" && (
             <div className="flex items-center gap-2 bg-grape rounded-2xl px-4 py-3 border border-white/10">
               <Calendar className="w-4 h-4 text-cream/40 shrink-0" />
-              <input required type="date" className="bg-transparent outline-none text-sm text-cream placeholder:text-cream/40 font-jakarta w-full [color-scheme:dark]" />
+              <input required type="number" min={18} max={100} value={form.age} onChange={update("age")} placeholder="Age" className="bg-transparent outline-none text-sm text-cream placeholder:text-cream/40 font-jakarta w-full [color-scheme:dark]" />
             </div>
           )}
 
+          {error && <p className="font-jakarta text-xs text-coral text-center">{error}</p>}
+
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-br from-coral to-gold text-white font-jakarta font-bold text-sm py-3.5 rounded-2xl mt-5 shadow-[0_8px_24px_-6px_rgba(255,93,115,0.5)] active:scale-[0.98] transition-transform"
+            disabled={submitting}
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-br from-coral to-gold text-white font-jakarta font-bold text-sm py-3.5 rounded-2xl mt-5 shadow-[0_8px_24px_-6px_rgba(255,93,115,0.5)] active:scale-[0.98] transition-transform disabled:opacity-60"
           >
-            {mode === "signup" ? "Create my account" : "Log in"}
-            <ArrowRight className="w-4 h-4" />
+            {submitting ? "Please wait..." : mode === "signup" ? "Create my account" : "Log in"}
+            {!submitting && <ArrowRight className="w-4 h-4" />}
           </button>
 
           {mode === "signup" && (
