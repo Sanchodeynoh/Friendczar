@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronLeft, Send, Image as ImageIcon, Flame, Search, MoreVertical, Pin, PinOff, Trash2 } from "lucide-react";
+import { ChevronLeft, Send, Image as ImageIcon, Flame, Search, MoreVertical, Pin, PinOff, Trash2, X } from "lucide-react";
 import MobileShell from "../components/MobileShell.jsx";
 
 const SEED_THREADS = [
@@ -43,7 +43,7 @@ const SEED_THREADS = [
     lastMessage: "sent a photo",
     time: "3h",
     unread: 0,
-    messages: [{ from: "them", text: "sent a photo", time: "07:40", isImage: true, imageSrc: "https://images.unsplash.com/photo-1520950237264-05a5f349b8d5?w=500&q=80" }],
+    messages: [{ from: "them", attachment: { type: "photo", url: "https://images.unsplash.com/photo-1520950237264-05a5f349b8d5?w=500&q=80" }, time: "07:40" }],
   },
   {
     id: "layla",
@@ -162,16 +162,34 @@ function InboxList({ threads, onOpen, onPin, onDelete }) {
 function ChatThread({ thread, onBack }) {
   const [messages, setMessages] = useState(thread.messages);
   const [draft, setDraft] = useState("");
+  const [pendingAttachment, setPendingAttachment] = useState(null);
   const scrollRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages]);
 
   const send = () => {
-    if (!draft.trim()) return;
-    setMessages((m) => [...m, { from: "me", text: draft.trim(), time: "now" }]);
+    if (!draft.trim() && !pendingAttachment) return;
+    setMessages((m) => [
+      ...m,
+      {
+        from: "me",
+        text: draft.trim() || undefined,
+        attachment: pendingAttachment || undefined,
+        time: "now",
+      },
+    ]);
     setDraft("");
+    setPendingAttachment(null);
+  };
+
+  const handleFilePicked = (file) => {
+    if (!file) return;
+    const isVideo = file.type.startsWith("video/");
+    const url = URL.createObjectURL(file);
+    setPendingAttachment({ type: isVideo ? "video" : "photo", url });
   };
 
   return (
@@ -198,22 +216,56 @@ function ChatThread({ thread, onBack }) {
           ) : (
             <div key={i} className={`flex ${m.from === "me" ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-[75%] rounded-2xl px-4 py-2.5 font-jakarta text-sm ${
+                className={`max-w-[75%] rounded-2xl overflow-hidden font-jakarta text-sm ${
                   m.from === "me" ? "bg-gradient-to-br from-coral to-gold text-white rounded-br-md" : "bg-grape text-cream rounded-bl-md"
-                }`}
+                } ${m.attachment ? "p-1.5" : "px-4 py-2.5"}`}
               >
-                {m.isImage ? <img src={m.imageSrc} alt="shared" className="rounded-xl w-full mb-1" /> : null}
-                {m.text}
+                {m.attachment?.type === "photo" && <img src={m.attachment.url} alt="shared" className="rounded-xl w-full max-h-64 object-cover" />}
+                {m.attachment?.type === "video" && (
+                  <video src={m.attachment.url} controls className="rounded-xl w-full max-h-64 object-cover" />
+                )}
+                {m.text && <p className={m.attachment ? "px-2.5 py-1.5" : ""}>{m.text}</p>}
               </div>
             </div>
           )
         )}
       </div>
 
+      {pendingAttachment && (
+        <div className="px-4 pb-2 shrink-0">
+          <div className="relative inline-block">
+            {pendingAttachment.type === "photo" ? (
+              <img src={pendingAttachment.url} alt="attachment preview" className="h-20 w-20 object-cover rounded-xl border border-white/10" />
+            ) : (
+              <video src={pendingAttachment.url} className="h-20 w-20 object-cover rounded-xl border border-white/10" />
+            )}
+            <button
+              onClick={() => setPendingAttachment(null)}
+              className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-ink border border-white/20 flex items-center justify-center"
+            >
+              <X className="w-3.5 h-3.5 text-cream" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-2 px-4 py-3 border-t border-white/10 shrink-0">
-        <button className="w-9 h-9 rounded-full flex items-center justify-center text-cream/60 hover:bg-white/5 shrink-0">
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="w-9 h-9 rounded-full flex items-center justify-center text-cream/60 hover:bg-white/5 shrink-0"
+        >
           <ImageIcon className="w-5 h-5" />
         </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*"
+          hidden
+          onChange={(e) => {
+            handleFilePicked(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
