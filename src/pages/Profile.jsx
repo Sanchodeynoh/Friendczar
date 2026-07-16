@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Settings, Plus, X, Play, Pencil, Flame, Heart, MessageCircle, Briefcase, GraduationCap, MapPin, Ruler, Sparkles, Languages as LanguagesIcon, Check, LogOut } from "lucide-react";
+import { Settings, Plus, X, Play, Pencil, Flame, Heart, MessageCircle, Briefcase, GraduationCap, MapPin, Ruler, Sparkles, Languages as LanguagesIcon, Check, LogOut, Camera, Trash2 } from "lucide-react";
 import MobileShell from "../components/MobileShell.jsx";
+import NotificationBell from "../components/NotificationBell.jsx";
 import { LANGUAGES } from "../data/languages.js";
 import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -136,6 +137,10 @@ export default function Profile() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const fileInputRef = useRef(null);
+  const avatarInputRef = useRef(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
 
   useEffect(() => {
     api
@@ -189,9 +194,46 @@ export default function Profile() {
     }
   };
 
+  const handleAvatarPicked = async (file) => {
+    if (!file) return;
+    setAvatarUploading(true);
+    setError("");
+    try {
+      const { profile: updated } = await api.uploadAvatar(file);
+      setProfile(updated);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const removeAvatar = async () => {
+    setProfile((p) => ({ ...p, avatarUrl: null }));
+    try {
+      const { profile: updated } = await api.deleteAvatar();
+      setProfile(updated);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const startEditingName = () => {
+    setNameDraft(profile.name);
+    setEditingName(true);
+  };
+
+  const saveName = async () => {
+    const trimmed = nameDraft.trim();
+    setEditingName(false);
+    if (!trimmed || trimmed === profile.name) return;
+    await patch({ name: trimmed });
+  };
+
   const completion = useMemo(() => {
     if (!profile) return 0;
     const checks = [
+      !!profile.avatarUrl,
       profile.media.length > 0,
       profile.media.length >= 3,
       profile.bio?.trim().length > 20,
@@ -222,31 +264,80 @@ export default function Profile() {
       header={
         <header className="flex items-center justify-between px-5 pt-5 pb-2 shrink-0">
           <h1 className="font-fredoka text-2xl text-cream">My Profile</h1>
-          <button onClick={logout} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/10">
-            <LogOut className="w-4 h-4 text-cream" />
-          </button>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <button onClick={logout} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/10">
+              <LogOut className="w-4 h-4 text-cream" />
+            </button>
+          </div>
         </header>
       }
     >
       <div className="flex-1 overflow-y-auto scroll-thin px-5 pb-8">
         <div className="flex items-center gap-4 mt-2">
-          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-coral to-gold p-[3px]">
-            <div className="w-full h-full rounded-[22px] bg-grape overflow-hidden flex items-center justify-center">
-              {profile.media[0] ? (
-                profile.media[0].type === "photo" ? (
-                  <img src={profile.media[0].url} className="w-full h-full object-cover" alt="You" />
+          <div className="relative shrink-0">
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-coral to-gold p-[3px]">
+              <div className="w-full h-full rounded-[22px] bg-grape overflow-hidden flex items-center justify-center">
+                {profile.avatarUrl ? (
+                  <img src={profile.avatarUrl} className="w-full h-full object-cover" alt={profile.name} />
                 ) : (
-                  <video src={profile.media[0].url} className="w-full h-full object-cover" muted />
-                )
-              ) : (
-                <span className="font-fredoka text-3xl text-cream/40">?</span>
-              )}
+                  <span className="font-fredoka text-3xl text-cream/40">{profile.name?.[0] || "?"}</span>
+                )}
+              </div>
             </div>
+            <button
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={avatarUploading}
+              className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-gradient-to-br from-coral to-gold border-2 border-ink flex items-center justify-center disabled:opacity-60"
+            >
+              <Camera className="w-3.5 h-3.5 text-white" />
+            </button>
+            {profile.avatarUrl && (
+              <button
+                onClick={removeAvatar}
+                className="absolute -bottom-1 -left-1 w-7 h-7 rounded-full bg-ink border-2 border-coral flex items-center justify-center"
+              >
+                <Trash2 className="w-3 h-3 text-coral" />
+              </button>
+            )}
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                handleAvatarPicked(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <h2 className="font-fredoka text-xl text-cream">{profile.name}</h2>
-              {profile.age && <span className="font-jakarta text-cream/70">{profile.age}</span>}
+              {editingName ? (
+                <>
+                  <input
+                    autoFocus
+                    value={nameDraft}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && saveName()}
+                    className="font-fredoka text-xl text-cream bg-white/10 rounded-lg px-2 py-1 outline-none border border-white/10 w-32"
+                  />
+                  <button onClick={saveName} className="w-7 h-7 rounded-full bg-mint flex items-center justify-center">
+                    <Check className="w-3.5 h-3.5 text-ink" />
+                  </button>
+                  <button onClick={() => setEditingName(false)} className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center">
+                    <X className="w-3.5 h-3.5 text-cream" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 className="font-fredoka text-xl text-cream">{profile.name}</h2>
+                  {profile.age && <span className="font-jakarta text-cream/70">{profile.age}</span>}
+                  <button onClick={startEditingName} className="text-gold">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
             </div>
             <div className="flex items-center gap-2 mt-1.5">
               <div className="flex-1 h-2 rounded-full bg-white/10 overflow-hidden">

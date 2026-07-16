@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import MobileShell from "../components/MobileShell.jsx";
+import NotificationBell from "../components/NotificationBell.jsx";
 import { api } from "../lib/api.js";
 
 const PLACEHOLDER_PHOTO = "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=900&q=80";
@@ -97,7 +98,9 @@ function CommentsSheet({ profile, onClose }) {
           )}
           {comments.map((c) => (
             <div key={c.id} className="flex gap-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-coral to-gold shrink-0" />
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-coral to-gold shrink-0 overflow-hidden flex items-center justify-center">
+                {c.author.avatarUrl && <img src={c.author.avatarUrl} alt={c.author.name} className="w-full h-full object-cover" />}
+              </div>
               <div>
                 <p className="font-jakarta text-xs font-bold text-cream">{c.author.name}</p>
                 <p className="font-jakarta text-sm text-cream/80">{c.text}</p>
@@ -307,13 +310,16 @@ export default function Discover() {
             </div>
             <span className="font-fredoka text-2xl text-cream tracking-tight">friendczar</span>
           </div>
-          <button
-            onClick={() => setShowFilters(true)}
-            className="relative w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/10 active:scale-95 transition-transform"
-          >
-            <SlidersHorizontal className="w-4 h-4 text-cream" />
-            {filtersActive && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-coral border-2 border-ink" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <button
+              onClick={() => setShowFilters(true)}
+              className="relative w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/10 active:scale-95 transition-transform"
+            >
+              <SlidersHorizontal className="w-4 h-4 text-cream" />
+              {filtersActive && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-coral border-2 border-ink" />}
+            </button>
+          </div>
         </header>
       }
     >

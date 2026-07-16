@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ChevronLeft, Send, Image as ImageIcon, Flame, Search, MoreVertical, Pin, PinOff, Trash2, X } from "lucide-react";
 import MobileShell from "../components/MobileShell.jsx";
+import NotificationBell from "../components/NotificationBell.jsx";
 import { api } from "../lib/api.js";
 
 function timeAgo(dateStr) {
@@ -55,7 +56,10 @@ function InboxList({ threads, loading, onOpen, onPin, onDelete }) {
   return (
     <>
       <header className="px-5 pt-5 pb-3 shrink-0">
-        <h1 className="font-fredoka text-3xl text-cream">Messages</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="font-fredoka text-3xl text-cream">Messages</h1>
+          <NotificationBell />
+        </div>
         <div className="mt-3 flex items-center gap-2 bg-grape rounded-full px-4 py-2.5 border border-white/10">
           <Search className="w-4 h-4 text-cream/50" />
           <input
@@ -74,8 +78,8 @@ function InboxList({ threads, loading, onOpen, onPin, onDelete }) {
           <div key={t.id} className="relative">
             <button onClick={() => onOpen(t.otherUser.id)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-white/5 active:bg-white/10 transition-colors text-left">
               <div className="relative shrink-0 w-14 h-14 rounded-2xl bg-grape overflow-hidden flex items-center justify-center">
-                {t.otherUser.media?.[0] ? (
-                  <img src={t.otherUser.media[0].url} alt={t.otherUser.name} className="w-full h-full object-cover" />
+                {t.otherUser.avatarUrl || t.otherUser.media?.[0] ? (
+                  <img src={t.otherUser.avatarUrl || t.otherUser.media[0]?.url} alt={t.otherUser.name} className="w-full h-full object-cover" />
                 ) : (
                   <span className="font-fredoka text-lg text-cream/30">{t.otherUser.name[0]}</span>
                 )}
@@ -167,8 +171,8 @@ function ChatThread({ otherUserId, onBack }) {
           <ChevronLeft className="w-5 h-5 text-cream" />
         </button>
         <div className="w-9 h-9 rounded-full bg-grape overflow-hidden flex items-center justify-center shrink-0">
-          {thread.otherUser.media?.[0] ? (
-            <img src={thread.otherUser.media[0].url} alt={thread.otherUser.name} className="w-full h-full object-cover" />
+          {thread.otherUser.avatarUrl || thread.otherUser.media?.[0] ? (
+            <img src={thread.otherUser.avatarUrl || thread.otherUser.media[0]?.url} alt={thread.otherUser.name} className="w-full h-full object-cover" />
           ) : (
             <span className="font-fredoka text-sm text-cream/30">{thread.otherUser.name[0]}</span>
           )}

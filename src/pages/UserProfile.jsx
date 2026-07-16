@@ -128,7 +128,7 @@ export default function UserProfile() {
   ];
 
   const gallery = profile.media || [];
-  const hero = gallery[0];
+  const hero = gallery[0] || (profile.avatarUrl ? { type: "photo", url: profile.avatarUrl } : null);
 
   return (
     <div className="w-full h-[100dvh] flex justify-center bg-ink overflow-hidden">
