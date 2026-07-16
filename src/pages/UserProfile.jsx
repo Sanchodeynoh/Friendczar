@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   ChevronLeft,
   Heart,
@@ -13,6 +13,7 @@ import {
   Play,
   X,
   Flag,
+  MessageCircle,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 
@@ -58,12 +59,18 @@ function ReportSheet({ onSubmit, onClose }) {
 export default function UserProfile() {
   const { userId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lightbox, setLightbox] = useState(null);
   const [showReport, setShowReport] = useState(false);
   const [reportSent, setReportSent] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(true);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [commentSending, setCommentSending] = useState(false);
+  const commentsRef = useRef(null);
 
   useEffect(() => {
     setLoading(true);
@@ -72,7 +79,33 @@ export default function UserProfile() {
       .then(({ profile }) => setProfile(profile))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
+
+    setCommentsLoading(true);
+    api
+      .getComments(userId)
+      .then(({ comments }) => setComments(comments))
+      .finally(() => setCommentsLoading(false));
   }, [userId]);
+
+  useEffect(() => {
+    if (location.state?.scrollToComments && !loading && commentsRef.current) {
+      commentsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [location.state, loading]);
+
+  const submitComment = async () => {
+    if (!commentDraft.trim() || commentSending) return;
+    setCommentSending(true);
+    try {
+      const { comment } = await api.addComment(userId, commentDraft.trim());
+      setComments((c) => [...c, comment]);
+      setCommentDraft("");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCommentSending(false);
+    }
+  };
 
   useEffect(() => {
     if (!reportSent) return;
@@ -229,6 +262,42 @@ export default function UserProfile() {
                   ))}
                 </div>
               )}
+            </div>
+            <div className="mt-6" ref={commentsRef}>
+              <h3 className="font-jakarta font-bold text-cream text-sm flex items-center gap-1.5">
+                <MessageCircle className="w-3.5 h-3.5 text-gold" /> Comments {comments.length > 0 && `(${comments.length})`}
+              </h3>
+              <div className="mt-2 space-y-3">
+                {commentsLoading && <p className="font-jakarta text-sm text-cream/40">Loading comments...</p>}
+                {!commentsLoading && comments.length === 0 && <p className="font-jakarta text-sm text-cream/40">No comments yet — be the first to say hi.</p>}
+                {comments.map((c) => (
+                  <div key={c.id} className="flex gap-2">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-coral to-gold shrink-0 overflow-hidden flex items-center justify-center">
+                      {c.author.avatarUrl && <img src={c.author.avatarUrl} alt={c.author.name} className="w-full h-full object-cover" />}
+                    </div>
+                    <div>
+                      <p className="font-jakarta text-xs font-bold text-cream">{c.author.name}</p>
+                      <p className="font-jakarta text-sm text-cream/80">{c.text}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 mt-4">
+                <input
+                  value={commentDraft}
+                  onChange={(e) => setCommentDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && submitComment()}
+                  placeholder="Add a comment..."
+                  className="flex-1 bg-grape rounded-full px-4 py-2.5 text-sm text-cream placeholder:text-cream/40 outline-none font-jakarta border border-white/10"
+                />
+                <button
+                  onClick={submitComment}
+                  disabled={commentSending}
+                  className="w-10 h-10 rounded-full bg-gradient-to-br from-coral to-gold flex items-center justify-center text-white shrink-0 disabled:opacity-50"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

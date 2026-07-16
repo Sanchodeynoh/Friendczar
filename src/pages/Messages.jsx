@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronLeft, Send, Image as ImageIcon, Flame, Search, MoreVertical, Pin, PinOff, Trash2, X } from "lucide-react";
+import { ChevronLeft, Send, Image as ImageIcon, Flame, Search, MoreVertical, Pin, PinOff, Trash2, X, Phone, Video } from "lucide-react";
 import MobileShell from "../components/MobileShell.jsx";
 import NotificationBell from "../components/NotificationBell.jsx";
 import { api } from "../lib/api.js";
+import { useCall } from "../context/CallContext.jsx";
 
 function timeAgo(dateStr) {
   if (!dateStr) return "";
@@ -116,6 +117,7 @@ function InboxList({ threads, loading, onOpen, onPin, onDelete }) {
 }
 
 function ChatThread({ otherUserId, onBack }) {
+  const { startCall } = useCall();
   const [thread, setThread] = useState(null);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
@@ -177,7 +179,19 @@ function ChatThread({ otherUserId, onBack }) {
             <span className="font-fredoka text-sm text-cream/30">{thread.otherUser.name[0]}</span>
           )}
         </div>
-        <p className="font-jakarta font-bold text-cream text-sm leading-none">{thread.otherUser.name}</p>
+        <p className="font-jakarta font-bold text-cream text-sm leading-none flex-1">{thread.otherUser.name}</p>
+        <button
+          onClick={() => startCall(thread.otherUser.id, thread.otherUser.name, "audio")}
+          className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15"
+        >
+          <Phone className="w-4 h-4 text-mint" />
+        </button>
+        <button
+          onClick={() => startCall(thread.otherUser.id, thread.otherUser.name, "video")}
+          className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/15"
+        >
+          <Video className="w-4 h-4 text-coral" />
+        </button>
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto scroll-thin px-4 py-4 space-y-3">
