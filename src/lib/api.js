@@ -45,6 +45,12 @@ export const api = {
   myProfile: () => request("/api/profiles/me"),
   updateMyProfile: (payload) => request("/api/profiles/me", { method: "PUT", body: payload }),
   getProfile: (id) => request(`/api/profiles/${id}`),
+  uploadAvatar: (file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request("/api/profiles/me/avatar", { method: "POST", body: form, isMultipart: true });
+  },
+  deleteAvatar: () => request("/api/profiles/me/avatar", { method: "DELETE" }),
 
   // Media
   uploadMedia: (file) => {
@@ -76,6 +82,12 @@ export const api = {
 
   // Reports
   fileReport: (targetId, reason) => request("/api/reports", { method: "POST", body: { targetId, reason } }),
+
+  // Notifications
+  getNotifications: () => request("/api/notifications"),
+  getUnreadCount: () => request("/api/notifications/unread-count"),
+  markAllNotificationsRead: () => request("/api/notifications/read-all", { method: "PATCH" }),
+  markNotificationRead: (id) => request(`/api/notifications/${id}/read`, { method: "PATCH" }),
 
   // Admin
   adminStats: () => request("/api/admin/stats"),
