@@ -67,3 +67,21 @@ When the backend (on Render) is ready, the main things to wire up are:
 - `Admin.jsx` → replace `USERS`, `REPORTS`, and `GROWTH` mocks with real admin API data
 
 I can help build that backend and this wiring whenever you're ready.
+
+## Audio/video calling
+
+Calling uses WebRTC — your browser connects directly (or through a relay) to the other person's browser to send audio/video, while the backend only helps the two browsers "introduce" themselves (signaling, over a WebSocket via Socket.IO).
+
+This works out of the box with a free public STUN server, which succeeds most of the time. Some networks (strict mobile carrier NAT, some corporate/school WiFi) need a **TURN server** to relay the call instead — STUN alone won't get through those. For real, reliable calling across many networks, add a TURN provider:
+
+1. Sign up free at a provider like [metered.ca/tools/openrelay](https://www.metered.ca/tools/openrelay/)
+2. They give you a TURN URL, username, and credential
+3. Set these as environment variables in your frontend build:
+   ```
+   VITE_TURN_URL=turn:your-provider-url:3478
+   VITE_TURN_USERNAME=your-username
+   VITE_TURN_CREDENTIAL=your-credential
+   ```
+Without these, calling still works with STUN only — fine on most home/mobile networks, but may fail on stricter ones.
+
+**Also:** Render's free tier spins the backend down after inactivity. If the site's been idle a while, the very first call attempt might not connect right away — reopening the app (which wakes the backend) and trying again usually fixes it.
