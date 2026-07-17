@@ -49,6 +49,7 @@ export default function NotificationBell() {
   const handleClick = (n) => {
     setOpen(false);
     if (n.type === "message" && n.fromUser) navigate(`/messages/${n.fromUser.id}`);
+    else if (n.type === "comment" && n.fromUser) navigate(`/user/${n.fromUser.id}`, { state: { scrollToComments: true } });
     else if (n.fromUser) navigate(`/user/${n.fromUser.id}`);
   };
 
