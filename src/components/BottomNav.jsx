@@ -1,9 +1,10 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { Flame, MessageCircle, User } from "lucide-react";
+import { Flame, MessageCircle, User, Radio } from "lucide-react";
 
 const ITEMS = [
   { to: "/discover", icon: Flame, label: "Discover" },
+  { to: "/live", icon: Radio, label: "Live" },
   { to: "/messages", icon: MessageCircle, label: "Messages" },
   { to: "/profile", icon: User, label: "Profile" },
 ];
