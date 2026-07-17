@@ -5,6 +5,8 @@ import Discover from "./pages/Discover.jsx";
 import Messages from "./pages/Messages.jsx";
 import Profile from "./pages/Profile.jsx";
 import UserProfile from "./pages/UserProfile.jsx";
+import Live from "./pages/Live.jsx";
+import LiveRoom from "./pages/LiveRoom.jsx";
 import Admin from "./pages/Admin.jsx";
 import { ProtectedRoute, AdminRoute } from "./components/RouteGuards.jsx";
 
@@ -49,6 +51,22 @@ export default function App() {
         element={
           <ProtectedRoute>
             <UserProfile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/live"
+        element={
+          <ProtectedRoute>
+            <Live />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/live/:liveId"
+        element={
+          <ProtectedRoute>
+            <LiveRoom />
           </ProtectedRoute>
         }
       />
