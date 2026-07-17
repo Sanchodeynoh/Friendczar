@@ -98,4 +98,14 @@ export const api = {
   adminPendingMedia: () => request("/api/admin/media/pending"),
   adminApproveMedia: (id) => request(`/api/admin/media/${id}/approve`, { method: "PATCH" }),
   adminDeleteMedia: (id) => request(`/api/admin/media/${id}`, { method: "DELETE" }),
+
+  // Live streaming
+  listLive: () => request("/api/live"),
+  myLive: () => request("/api/live/mine"),
+  getLive: (id) => request(`/api/live/${id}`),
+  startLive: (title) => request("/api/live/start", { method: "POST", body: { title } }),
+  joinLive: (id) => request(`/api/live/${id}/join`, { method: "POST" }),
+  leaveLive: (id) => request(`/api/live/${id}/leave`, { method: "POST" }),
+  liveHeartbeat: (id) => request(`/api/live/${id}/heartbeat`, { method: "PATCH" }),
+  endLive: (id) => request(`/api/live/${id}/end`, { method: "POST" }),
 };
