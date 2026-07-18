@@ -1,7 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useSocket } from "./SocketContext.jsx";
+import { api } from "../lib/api.js";
 
 const CallContext = createContext(null);
+
+const RING_TIMEOUT_MS = 45000;
 
 function buildIceServers() {
   const servers = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -23,25 +26,75 @@ export function CallProvider({ children }) {
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
   const [error, setError] = useState("");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const pcRef = useRef(null);
   const pendingOfferRef = useRef(null);
   const pendingCandidatesRef = useRef([]);
+  const isCallerRef = useRef(false);
+  const connectedAtRef = useRef(null);
+  const ringTimeoutRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const peerRef = useRef(null);
+  const tickRef = useRef(null);
 
-  const cleanup = useCallback(() => {
-    pcRef.current?.close();
-    pcRef.current = null;
-    pendingOfferRef.current = null;
-    pendingCandidatesRef.current = [];
-    localStream?.getTracks().forEach((t) => t.stop());
-    setLocalStream(null);
-    setRemoteStream(null);
-    setPeer(null);
-    setCallState("idle");
-    setMicOn(true);
-    setCameraOn(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Keep refs mirrored to the latest state, since callbacks/timeouts/socket
+  // listeners below are created once and would otherwise see stale values.
+  useEffect(() => {
+    localStreamRef.current = localStream;
   }, [localStream]);
+  useEffect(() => {
+    peerRef.current = peer;
+  }, [peer]);
+
+  const clearRingTimeout = () => {
+    if (ringTimeoutRef.current) {
+      clearTimeout(ringTimeoutRef.current);
+      ringTimeoutRef.current = null;
+    }
+  };
+
+  const logCallOutcome = useCallback((status) => {
+    const p = peerRef.current;
+    if (!p) return;
+    const durationSeconds = connectedAtRef.current ? Math.round((Date.now() - connectedAtRef.current) / 1000) : 0;
+    api.logCall(p.userId, { callType: p.callType, status, durationSeconds }).catch(() => {});
+  }, []);
+
+  const cleanup = useCallback(
+    (logStatus) => {
+      clearRingTimeout();
+      if (tickRef.current) {
+        clearInterval(tickRef.current);
+        tickRef.current = null;
+      }
+      if (logStatus && isCallerRef.current) {
+        logCallOutcome(connectedAtRef.current ? "completed" : logStatus);
+      }
+      pcRef.current?.close();
+      pcRef.current = null;
+      pendingOfferRef.current = null;
+      pendingCandidatesRef.current = [];
+      connectedAtRef.current = null;
+      isCallerRef.current = false;
+      localStreamRef.current?.getTracks().forEach((t) => t.stop());
+      setLocalStream(null);
+      setRemoteStream(null);
+      setPeer(null);
+      setCallState("idle");
+      setMicOn(true);
+      setCameraOn(true);
+      setElapsedSeconds(0);
+    },
+    [logCallOutcome]
+  );
+
+  const beginTimer = useCallback(() => {
+    connectedAtRef.current = Date.now();
+    tickRef.current = setInterval(() => {
+      setElapsedSeconds(Math.round((Date.now() - connectedAtRef.current) / 1000));
+    }, 1000);
+  }, []);
 
   const createPeerConnection = useCallback(
     (toUserId) => {
@@ -51,7 +104,7 @@ export function CallProvider({ children }) {
       };
       pc.ontrack = (e) => setRemoteStream(e.streams[0]);
       pc.onconnectionstatechange = () => {
-        if (["failed", "closed"].includes(pc.connectionState)) cleanup();
+        if (["failed", "closed"].includes(pc.connectionState)) cleanup("missed");
       };
       pcRef.current = pc;
       return pc;
@@ -68,6 +121,7 @@ export function CallProvider({ children }) {
         setLocalStream(stream);
         setPeer({ userId: toUserId, name: toName, callType });
         setCallState("ringing-outgoing");
+        isCallerRef.current = true;
 
         const pc = createPeerConnection(toUserId);
         stream.getTracks().forEach((t) => pc.addTrack(t, stream));
@@ -75,6 +129,12 @@ export function CallProvider({ children }) {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         socket.emit("call:invite", { toUserId, offer, callType });
+
+        // If nobody answers within this window, treat it as a missed/unanswered call.
+        ringTimeoutRef.current = setTimeout(() => {
+          socket.emit("call:end", { toUserId });
+          cleanup("missed");
+        }, RING_TIMEOUT_MS);
       } catch (err) {
         setError(err.message === "Permission denied" ? "Camera/microphone permission was denied." : err.message);
         cleanup();
@@ -85,9 +145,11 @@ export function CallProvider({ children }) {
 
   const acceptCall = useCallback(async () => {
     if (!socket || !peer || !pendingOfferRef.current) return;
+    clearRingTimeout();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: peer.callType === "video" });
       setLocalStream(stream);
+      isCallerRef.current = false;
 
       const pc = createPeerConnection(peer.userId);
       stream.getTracks().forEach((t) => pc.addTrack(t, stream));
@@ -102,39 +164,38 @@ export function CallProvider({ children }) {
       await pc.setLocalDescription(answer);
       socket.emit("call:answer", { toUserId: peer.userId, answer });
       setCallState("connected");
+      beginTimer();
     } catch (err) {
       setError(err.message === "Permission denied" ? "Camera/microphone permission was denied." : err.message);
       cleanup();
     }
-  }, [socket, peer, createPeerConnection, cleanup]);
+  }, [socket, peer, createPeerConnection, cleanup, beginTimer]);
 
   const rejectCall = useCallback(() => {
     if (peer) socket?.emit("call:reject", { toUserId: peer.userId });
-    cleanup();
+    cleanup(); // the caller logs "missed"; the person declining doesn't double-log
   }, [socket, peer, cleanup]);
 
   const endCall = useCallback(() => {
     if (peer) socket?.emit("call:end", { toUserId: peer.userId });
-    cleanup();
+    cleanup("missed");
   }, [socket, peer, cleanup]);
 
   const toggleMic = useCallback(() => {
-    if (!localStream) return;
-    const track = localStream.getAudioTracks()[0];
+    const track = localStreamRef.current?.getAudioTracks()[0];
     if (track) {
       track.enabled = !track.enabled;
       setMicOn(track.enabled);
     }
-  }, [localStream]);
+  }, []);
 
   const toggleCamera = useCallback(() => {
-    if (!localStream) return;
-    const track = localStream.getVideoTracks()[0];
+    const track = localStreamRef.current?.getVideoTracks()[0];
     if (track) {
       track.enabled = !track.enabled;
       setCameraOn(track.enabled);
     }
-  }, [localStream]);
+  }, []);
 
   useEffect(() => {
     if (!socket) return;
@@ -151,12 +212,14 @@ export function CallProvider({ children }) {
 
     const onAnswered = async ({ answer }) => {
       if (!pcRef.current) return;
+      clearRingTimeout();
       await pcRef.current.setRemoteDescription(new RTCSessionDescription(answer));
       for (const candidate of pendingCandidatesRef.current) {
         await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
       }
       pendingCandidatesRef.current = [];
       setCallState("connected");
+      beginTimer();
     };
 
     const onIceCandidate = async ({ candidate }) => {
@@ -167,7 +230,7 @@ export function CallProvider({ children }) {
       }
     };
 
-    const onRejected = () => cleanup();
+    const onRejected = () => cleanup("declined");
     const onEnded = () => cleanup();
 
     socket.on("call:incoming", onIncoming);
@@ -183,11 +246,26 @@ export function CallProvider({ children }) {
       socket.off("call:rejected", onRejected);
       socket.off("call:ended", onEnded);
     };
-  }, [socket, callState, cleanup]);
+  }, [socket, callState, cleanup, beginTimer]);
 
   return (
     <CallContext.Provider
-      value={{ callState, peer, localStream, remoteStream, micOn, cameraOn, error, startCall, acceptCall, rejectCall, endCall, toggleMic, toggleCamera }}
+      value={{
+        callState,
+        peer,
+        localStream,
+        remoteStream,
+        micOn,
+        cameraOn,
+        error,
+        elapsedSeconds,
+        startCall,
+        acceptCall,
+        rejectCall,
+        endCall,
+        toggleMic,
+        toggleCamera,
+      }}
     >
       {children}
     </CallContext.Provider>
