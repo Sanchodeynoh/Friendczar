@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Settings, Plus, X, Play, Pencil, Flame, Heart, MessageCircle, Briefcase, GraduationCap, MapPin, Ruler, Sparkles, Languages as LanguagesIcon, Check, LogOut, Camera, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Settings, Plus, X, Play, Pencil, Flame, Heart, MessageCircle, Briefcase, GraduationCap, MapPin, Ruler, Sparkles, Languages as LanguagesIcon, Check, LogOut, Camera, Trash2, Crown, ChevronRight } from "lucide-react";
 import MobileShell from "../components/MobileShell.jsx";
 import NotificationBell from "../components/NotificationBell.jsx";
 import { LANGUAGES } from "../data/languages.js";
@@ -128,6 +129,7 @@ function EditableField({ icon: Icon, label, value, placeholder, onSave, type = "
 
 export default function Profile() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editingBio, setEditingBio] = useState(false);
@@ -483,6 +485,17 @@ export default function Profile() {
             </div>
           ))}
         </div>
+
+        <button
+          onClick={() => navigate("/monetization")}
+          className="w-full flex items-center gap-3 mt-6 px-4 py-3.5 rounded-2xl bg-[#141014] border border-[#C9A227]/40"
+        >
+          <span className="w-9 h-9 rounded-full bg-[#1f1a12] border border-[#C9A227]/50 flex items-center justify-center shrink-0">
+            <Crown className="w-4 h-4 text-[#C9A227]" />
+          </span>
+          <span className="font-fredoka text-base text-[#C9A227] tracking-wide flex-1 text-left">Monetization</span>
+          <ChevronRight className="w-4 h-4 text-[#C9A227]/60" />
+        </button>
       </div>
 
       {showLanguagePicker && (

@@ -39,7 +39,7 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen w-full flex justify-center bg-ink overflow-y-auto">
+    <div className="w-full h-[100dvh] flex justify-center bg-ink overflow-y-auto">
       <div className="w-full max-w-[420px] px-6 pt-10 pb-12">
         {/* Hero */}
         <div className="flex items-center gap-2">

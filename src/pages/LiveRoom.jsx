@@ -41,6 +41,7 @@ export default function LiveRoom() {
   const [viewerCount, setViewerCount] = useState(0);
   const [heartBurst, setHeartBurst] = useState(0);
   const [ended, setEnded] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
 
   const roomRef = useRef(null);
   const localVideoRef = useRef(null);
@@ -74,7 +75,7 @@ export default function LiveRoom() {
         setIsHost(hostFlag);
         setViewerCount(streamData.viewerCount || 0);
 
-        room = new Room();
+        room = new Room({ adaptiveStream: true, dynacast: true });
         roomRef.current = room;
 
         room.on(RoomEvent.TrackSubscribed, (track) => {
@@ -88,6 +89,16 @@ export default function LiveRoom() {
           } catch {
             /* ignore malformed data messages */
           }
+        });
+        // A shaky mobile connection often drops and re-establishes within a
+        // few seconds — LiveKit handles that automatically. We only treat
+        // the stream as truly over once it gives up for good (Disconnected),
+        // not during the brief Reconnecting phase in between.
+        room.on(RoomEvent.Reconnecting, () => {
+          if (!cancelled) setReconnecting(true);
+        });
+        room.on(RoomEvent.Reconnected, () => {
+          if (!cancelled) setReconnecting(false);
         });
         room.on(RoomEvent.Disconnected, () => {
           if (!cancelled) setEnded(true);
@@ -225,6 +236,12 @@ export default function LiveRoom() {
         </div>
       </div>
 
+      {reconnecting && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-gold/90 text-ink font-jakarta text-xs font-bold px-4 py-2 rounded-full z-10">
+          Reconnecting...
+        </div>
+      )}
+
       <FloatingHearts burstKey={heartBurst} />
 
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink via-ink/85 to-transparent pt-10 pb-5 px-4">
@@ -239,33 +256,36 @@ export default function LiveRoom() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mb-2">
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendChat(draft)}
             placeholder="Say something..."
-            className="flex-1 bg-white/10 rounded-full px-4 py-2.5 text-sm text-cream placeholder:text-cream/40 outline-none font-jakarta border border-white/10"
+            className="flex-1 min-w-0 bg-white/10 rounded-full px-4 py-2.5 text-sm text-cream placeholder:text-cream/40 outline-none font-jakarta border border-white/10"
           />
-          <button onClick={() => sendChat(draft)} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+          <button onClick={() => sendChat(draft)} className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center shrink-0">
             <Send className="w-4 h-4 text-cream" />
           </button>
-          <button onClick={sendReaction} className="w-10 h-10 rounded-full bg-coral flex items-center justify-center shrink-0 active:scale-90 transition-transform">
+        </div>
+
+        <div className="flex items-center justify-center gap-3">
+          <button onClick={sendReaction} className="w-9 h-9 rounded-full bg-coral flex items-center justify-center shrink-0 active:scale-90 transition-transform">
             <Heart className="w-4 h-4 text-white" fill="white" />
           </button>
 
           {isHost ? (
             <>
-              <button onClick={toggleMic} className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${micOn ? "bg-white/10" : "bg-coral"}`}>
+              <button onClick={toggleMic} className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${micOn ? "bg-white/10" : "bg-coral"}`}>
                 {micOn ? <Mic className="w-4 h-4 text-cream" /> : <MicOff className="w-4 h-4 text-white" />}
               </button>
-              <button onClick={toggleCamera} className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${cameraOn ? "bg-white/10" : "bg-coral"}`}>
+              <button onClick={toggleCamera} className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${cameraOn ? "bg-white/10" : "bg-coral"}`}>
                 {cameraOn ? <Video className="w-4 h-4 text-cream" /> : <VideoOff className="w-4 h-4 text-white" />}
               </button>
             </>
           ) : null}
 
-          <button onClick={leave} className="w-10 h-10 rounded-full bg-coral flex items-center justify-center shrink-0">
+          <button onClick={leave} className="w-9 h-9 rounded-full bg-coral flex items-center justify-center shrink-0">
             <PhoneOff className="w-4 h-4 text-white" />
           </button>
         </div>

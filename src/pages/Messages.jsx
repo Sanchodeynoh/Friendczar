@@ -17,6 +17,29 @@ function timeAgo(dateStr) {
   return `${Math.floor(hours / 24)}d`;
 }
 
+function formatClockTime(dateStr) {
+  if (!dateStr) return "";
+  return new Date(dateStr).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function formatCallDuration(totalSeconds) {
+  const mins = Math.floor((totalSeconds || 0) / 60);
+  const secs = (totalSeconds || 0) % 60;
+  return `${mins}:${String(secs).padStart(2, "0")}`;
+}
+
+function describeMessage(m, isMine) {
+  if (m.callType) {
+    const label = m.callType === "video" ? "Video call" : "Voice call";
+    if (m.callStatus === "completed") return `📞 ${label} · ${formatCallDuration(m.callDurationSeconds)}`;
+    if (m.callStatus === "declined") return isMine ? `📞 ${label} declined` : `📞 Missed ${m.callType} call`;
+    return isMine ? `📞 ${label} not answered` : `📞 Missed ${m.callType} call`;
+  }
+  if (m.attachmentType === "video") return "🎥 Sent a video";
+  if (m.attachmentType === "photo") return "📷 Sent a photo";
+  return m.text || "";
+}
+
 function ThreadMenu({ pinned, onPin, onDelete, onCloseMenu }) {
   return (
     <>
@@ -92,7 +115,7 @@ function InboxList({ threads, loading, onOpen, onPin, onDelete }) {
                   <span className="font-jakarta text-[11px] text-cream/40 shrink-0 ml-auto">{timeAgo(t.lastMessage?.createdAt)}</span>
                 </div>
                 <p className={`font-jakarta text-[13px] truncate mt-0.5 ${t.unread ? "text-cream/90 font-semibold" : "text-cream/50"}`}>
-                  {t.lastMessage ? t.lastMessage.text || (t.lastMessage.attachmentType === "video" ? "Sent a video" : "Sent a photo") : "Say hi 👋"}
+                  {t.lastMessage ? describeMessage(t.lastMessage, false) : "Say hi 👋"}
                 </p>
               </div>
               {t.unread > 0 && (
@@ -202,19 +225,43 @@ function ChatThread({ otherUserId, onBack }) {
             </span>
           </div>
         )}
-        {thread.messages.map((m) => (
-          <div key={m.id} className={`flex ${m.senderId !== thread.otherUser.id ? "justify-end" : "justify-start"}`}>
-            <div
-              className={`max-w-[75%] rounded-2xl overflow-hidden font-jakarta text-sm ${
-                m.senderId !== thread.otherUser.id ? "bg-gradient-to-br from-coral to-gold text-white rounded-br-md" : "bg-grape text-cream rounded-bl-md"
-              } ${m.attachmentUrl ? "p-1.5" : "px-4 py-2.5"}`}
-            >
-              {m.attachmentType === "photo" && <img src={m.attachmentUrl} alt="shared" className="rounded-xl w-full max-h-64 object-cover" />}
-              {m.attachmentType === "video" && <video src={m.attachmentUrl} controls className="rounded-xl w-full max-h-64 object-cover" />}
-              {m.text && <p className={m.attachmentUrl ? "px-2.5 py-1.5" : ""}>{m.text}</p>}
+        {thread.messages.map((m) => {
+          const isMine = m.senderId !== thread.otherUser.id;
+
+          if (m.callType) {
+            const missed = m.callStatus !== "completed";
+            return (
+              <div key={m.id} className="flex justify-center">
+                <span
+                  className={`font-jakarta text-[11px] font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 border ${
+                    missed ? "text-coral bg-coral/10 border-coral/20" : "text-mint bg-mint/10 border-mint/20"
+                  }`}
+                >
+                  {m.callType === "video" ? <Video className="w-3 h-3" /> : <Phone className="w-3 h-3" />}
+                  {describeMessage(m, isMine)}
+                  <span className="text-cream/40 font-normal">· {formatClockTime(m.createdAt)}</span>
+                </span>
+              </div>
+            );
+          }
+
+          return (
+            <div key={m.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[75%] flex flex-col ${isMine ? "items-end" : "items-start"}`}>
+                <div
+                  className={`rounded-2xl overflow-hidden font-jakarta text-sm ${
+                    isMine ? "bg-gradient-to-br from-coral to-gold text-white rounded-br-md" : "bg-grape text-cream rounded-bl-md"
+                  } ${m.attachmentUrl ? "p-1.5" : "px-4 py-2.5"}`}
+                >
+                  {m.attachmentType === "photo" && <img src={m.attachmentUrl} alt="shared" className="rounded-xl w-full max-h-64 object-cover" />}
+                  {m.attachmentType === "video" && <video src={m.attachmentUrl} controls className="rounded-xl w-full max-h-64 object-cover" />}
+                  {m.text && <p className={m.attachmentUrl ? "px-2.5 py-1.5" : ""}>{m.text}</p>}
+                </div>
+                <span className="font-jakarta text-[10px] text-cream/35 mt-1 px-1">{formatClockTime(m.createdAt)}</span>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {pendingFile && (
