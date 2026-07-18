@@ -268,6 +268,9 @@ export default function Profile() {
           <h1 className="font-fredoka text-2xl text-cream">My Profile</h1>
           <div className="flex items-center gap-2">
             <NotificationBell />
+            <button onClick={() => navigate("/settings")} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/10">
+              <Settings className="w-4 h-4 text-cream" />
+            </button>
             <button onClick={logout} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/10">
               <LogOut className="w-4 h-4 text-cream" />
             </button>

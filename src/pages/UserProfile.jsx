@@ -14,6 +14,8 @@ import {
   X,
   Flag,
   MessageCircle,
+  MoreVertical,
+  Ban,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 
@@ -28,6 +30,27 @@ function LightboxItem({ item, onClose }) {
       ) : (
         <video src={item.url} controls autoPlay className="max-w-full max-h-full object-contain" />
       )}
+    </div>
+  );
+}
+
+function BlockConfirmSheet({ name, onConfirm, onClose, blocking }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={onClose}>
+      <div className="w-full max-w-[420px] bg-grape rounded-t-3xl border-t border-white/10 p-5" onClick={(e) => e.stopPropagation()}>
+        <h3 className="font-fredoka text-lg text-cream mb-2">Block {name}?</h3>
+        <p className="font-jakarta text-sm text-cream/60 mb-4">
+          They won't be able to see your profile, message you, or call you — and you won't see theirs either. You can unblock them later from your profile settings.
+        </p>
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 bg-white/10 text-cream font-jakarta font-bold text-sm py-3 rounded-2xl">
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={blocking} className="flex-1 bg-coral text-white font-jakarta font-bold text-sm py-3 rounded-2xl disabled:opacity-60">
+            {blocking ? "Blocking..." : "Block"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -66,6 +89,9 @@ export default function UserProfile() {
   const [lightbox, setLightbox] = useState(null);
   const [showReport, setShowReport] = useState(false);
   const [reportSent, setReportSent] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [blocking, setBlocking] = useState(false);
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [commentDraft, setCommentDraft] = useState("");
@@ -132,6 +158,17 @@ export default function UserProfile() {
     }
   };
 
+  const blockThisUser = async () => {
+    setBlocking(true);
+    try {
+      await api.blockUser(userId);
+      navigate("/discover");
+    } catch (err) {
+      console.error(err);
+      setBlocking(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-ink">
@@ -173,9 +210,36 @@ export default function UserProfile() {
             </button>
             <h1 className="font-fredoka text-xl text-cream">{profile.name}'s profile</h1>
           </div>
-          <button onClick={() => setShowReport(true)} className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">
-            <Flag className="w-4 h-4 text-cream/60" />
-          </button>
+          <div className="relative">
+            <button onClick={() => setShowMenu((v) => !v)} className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">
+              <MoreVertical className="w-4 h-4 text-cream/60" />
+            </button>
+            {showMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+                <div className="absolute right-0 top-11 z-50 bg-grape border border-white/10 rounded-2xl shadow-xl overflow-hidden w-44">
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      setShowReport(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-3 text-left font-jakarta text-sm text-cream hover:bg-white/5"
+                  >
+                    <Flag className="w-4 h-4 text-gold" /> Report
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      setShowBlockConfirm(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-3 text-left font-jakarta text-sm text-coral hover:bg-white/5 border-t border-white/5"
+                  >
+                    <Ban className="w-4 h-4" /> Block {profile.name}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto scroll-thin pb-24">
@@ -320,6 +384,9 @@ export default function UserProfile() {
 
       {lightbox && <LightboxItem item={lightbox} onClose={() => setLightbox(null)} />}
       {showReport && <ReportSheet onSubmit={submitReport} onClose={() => setShowReport(false)} />}
+      {showBlockConfirm && (
+        <BlockConfirmSheet name={profile.name} onConfirm={blockThisUser} onClose={() => setShowBlockConfirm(false)} blocking={blocking} />
+      )}
       {reportSent && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 bg-grape border border-white/10 text-cream font-jakarta text-xs font-semibold px-4 py-2 rounded-full shadow-lg z-50">
           Report submitted — our team will review it.
