@@ -1,0 +1,8 @@
+{
+  "appId": "net.friendczar.app",
+  "appName": "Friendczar",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}
