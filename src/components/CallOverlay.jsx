@@ -2,11 +2,32 @@ import React, { useEffect, useRef } from "react";
 import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, User } from "lucide-react";
 import { useCall } from "../context/CallContext.jsx";
 
+function formatDuration(totalSeconds) {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${mins}:${String(secs).padStart(2, "0")}`;
+}
+
 export default function CallOverlay() {
-  const { callState, peer, localStream, remoteStream, micOn, cameraOn, error, acceptCall, rejectCall, endCall, toggleMic, toggleCamera } = useCall();
+  const {
+    callState,
+    peer,
+    localStream,
+    remoteStream,
+    micOn,
+    cameraOn,
+    error,
+    elapsedSeconds,
+    acceptCall,
+    rejectCall,
+    endCall,
+    toggleMic,
+    toggleCamera,
+  } = useCall();
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const remoteAudioRef = useRef(null);
 
   useEffect(() => {
     if (localVideoRef.current) localVideoRef.current.srcObject = localStream || null;
@@ -14,6 +35,9 @@ export default function CallOverlay() {
 
   useEffect(() => {
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream || null;
+    // Audio-only calls have no <video> element mounted to play the remote
+    // track, so we always keep a dedicated <audio> element in sync too.
+    if (remoteAudioRef.current) remoteAudioRef.current.srcObject = remoteStream || null;
   }, [remoteStream]);
 
   if (callState === "idle") return null;
@@ -22,7 +46,13 @@ export default function CallOverlay() {
 
   return (
     <div className="fixed inset-0 z-[999] bg-ink flex flex-col">
-      {/* Remote video fills the screen for video calls */}
+      {/* This plays remote audio for BOTH call types. For video calls the
+          <video> element below also carries audio, but keeping this always
+          mounted (and simply always in sync) is what actually fixes voice
+          calls having no sound — previously nothing played the audio-only
+          remote track at all. */}
+      <audio ref={remoteAudioRef} autoPlay className={isVideo ? "hidden" : ""} />
+
       {isVideo && remoteStream && (
         <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
       )}
@@ -35,12 +65,21 @@ export default function CallOverlay() {
           <p className="font-jakarta text-sm text-cream/50 mt-1">
             {callState === "ringing-outgoing" && "Calling..."}
             {callState === "ringing-incoming" && `Incoming ${isVideo ? "video" : "voice"} call`}
-            {callState === "connected" && (isVideo ? "Connecting video..." : "Voice call in progress")}
+            {callState === "connected" && (isVideo ? "Connecting video..." : formatDuration(elapsedSeconds))}
           </p>
         </div>
       )}
 
-      {/* Local video PIP for video calls */}
+      {/* Name + live timer overlay for video calls (audio calls show it in the center card above) */}
+      {isVideo && callState === "connected" && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-black/40 backdrop-blur px-4 py-1.5 rounded-full">
+          <p className="font-jakarta text-xs font-bold text-white">
+            {peer?.name} · {formatDuration(elapsedSeconds)}
+          </p>
+        </div>
+      )}
+
+      {/* Local video PIP — shown to whichever side (caller or receiver) has their camera on, WhatsApp-style */}
       {isVideo && localStream && (
         <video ref={localVideoRef} autoPlay playsInline muted className="absolute top-6 right-5 w-24 h-32 rounded-2xl object-cover border-2 border-white/20 z-10" />
       )}
